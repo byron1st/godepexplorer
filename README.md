@@ -1,0 +1,2 @@
+# godepexplorer
+Go dependency explorer
