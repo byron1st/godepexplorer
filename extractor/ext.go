@@ -5,32 +5,33 @@ import (
 	"os"
 	"path/filepath"
 	"fmt"
+	"io/ioutil"
 )
 
 type Package struct {
-	Id          string
-	Name        string
-	PackagePath string
-	PackageName string
-	PackageDir  string
-	IsPkg       bool
-	IsExternal  bool
-	IsStd       bool
+	Id          string `json:"id"`
+	Name        string `json:"label"`
+	PackagePath string `json:"packagePath"`
+	PackageName string `json:"packageName"`
+	PackageDir  string `json:"packageDir"`
+	IsPkg       bool   `json:"isPkg"`
+	IsExternal  bool   `json:"isExternal"`
+	IsStd       bool   `json:"isStd"`
 }
 
 type DepType int
 
 const (
 	COMP DepType = iota
-	REL
+	//REL
 )
 
 type Dep struct {
-	Id    string
-	From  string
-	To    string
-	Type  DepType
-	Count int
+	Id    string  `json:"id"`
+	From  string  `json:"from"`
+	To    string  `json:"to"`
+	Type  DepType `json:"type"`
+	Count int     `json:"count"`
 }
 
 var GOPATH = path.Join(os.Getenv("GOPATH"), "src")
@@ -59,23 +60,27 @@ func traverse(pathStr string) (error, []*Package, []*Dep) {
 	goPathLen := len(GOPATH) + 1
 	isPkg := false
 
-	err := filepath.Walk(pathStr, func(childPathStr string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	files, err := ioutil.ReadDir(pathStr)
+	if err != nil {
+		return err, nil, nil
+	}
 
-		if filepath.Ext(info.Name()) == ".go" {
+	for _, file := range files {
+		if filepath.Ext(file.Name()) == ".go" {
 			isPkg = true
 		}
 
-		if pathStr != childPathStr && info.IsDir() {
-			fmt.Printf("Child path: %s\n", childPathStr)
-			walkErr, childPackageList, childDepList := traverse(childPathStr)
-			childPathStr := childPackageList[len(childPackageList) - 1].Id
+		childPathStr := path.Join(pathStr, file.Name())
 
-			if walkErr != nil {
-				return walkErr
+		if file.IsDir() {
+			fmt.Printf("%s - %s\n", pathStr, childPathStr)
+			err, childPackageList, childDepList := traverse(childPathStr)
+
+			if err != nil {
+				return err, nil, nil
 			}
+
+			childPathStr := childPackageList[len(childPackageList) - 1].Id
 
 			depList = append(depList, &Dep{
 				Id: fmt.Sprintf("%s<>-%s", pathStr, childPathStr),
@@ -93,12 +98,6 @@ func traverse(pathStr string) (error, []*Package, []*Dep) {
 				packageList = append(packageList, childPackage)
 			}
 		}
-
-		return nil
-	})
-
-	if err != nil {
-		return err, nil, nil
 	}
 
 	_, name := path.Split(pathStr)
