@@ -5,10 +5,11 @@ import (
 	"log"
 	"encoding/json"
 	"github.com/byron1st/godepexplorer/extractor"
+	"fmt"
 )
 
 type dirReqStruct struct {
-	RootPath string
+	RootPkgName string `json:"rootPkgName"`
 }
 
 type dirResStruct struct {
@@ -24,7 +25,11 @@ func getDir(writer http.ResponseWriter, request *http.Request) {
 		http.Error(writer, err.Error(), 400)
 	}
 
-	err, nodes, edges := extractor.GetDirTree(req.RootPath)
+	rootPkgName := req.RootPkgName
+	fmt.Printf("Root package name: %s\n", rootPkgName)
+
+	err, nodes, edges := extractor.GetDirTree(rootPkgName)
+	fmt.Printf("nodes len: %d, edges len: %d\n", len(nodes), len(edges))
 	json.NewEncoder(writer).Encode(&dirResStruct{nodes, edges})
 }
 
