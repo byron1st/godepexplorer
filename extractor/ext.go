@@ -111,3 +111,7 @@ func traverse(pathStr string) (error, []*Package, []*Dep) {
 
 	return nil, packageList, depList
 }
+
+func GetDeps(pkgName string) (error, []*Package, []*Dep) {
+	return nil, nil, nil
+}
