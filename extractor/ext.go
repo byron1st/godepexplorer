@@ -111,11 +111,12 @@ func traverse(pathStr string) (error, []*Package, []*Dep) {
 
 	_, name := path.Split(pathStr)
 	packageList = append(packageList, &Package{
-		Id: pathStr,
-		Name: name,
+		Id:          pathStr,
+		Name:        name,
 		PackagePath: pathStr[goPathLen:],
-		PackageDir: pathStr,
-		IsPkg: isPkg,
+		PackageDir:  pathStr,
+		IsPkg:       isPkg,
+		FuncSet:     make(map[string]bool),
 	})
 
 	return nil, packageList, depList
