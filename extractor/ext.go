@@ -1,22 +1,23 @@
 package extractor
 
 import (
-	"path"
-	"os"
-	"path/filepath"
 	"fmt"
-	"io/ioutil"
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/loader"
-	"golang.org/x/tools/go/ssa/ssautil"
-	"golang.org/x/tools/go/callgraph/cha"
-	"golang.org/x/tools/go/callgraph"
-	"strings"
 	"go/types"
+	"io/ioutil"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+
+	"golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/callgraph/cha"
+	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 type Package struct {
-	Id          string          `json:"id"`
+	ID          string          `json:"id"`
 	Name        string          `json:"label"`
 	PackagePath string          `json:"packagePath"`
 	PackageName string          `json:"packageName"`
@@ -27,15 +28,8 @@ type Package struct {
 	FuncSet     map[string]bool `json:"funcSet"`
 }
 
-type DepType int
-
-const (
-	COMP DepType = iota
-	REL
-)
-
 type Dep struct {
-	Id        string          `json:"id"`
+	ID        string          `json:"id"`
 	From      string          `json:"from"`
 	To        string          `json:"to"`
 	Type      DepType         `json:"type"`
@@ -43,35 +37,42 @@ type Dep struct {
 	DepAtFunc map[string]bool `json:"depAtFunc"`
 }
 
-var GOPATH = path.Join(os.Getenv("GOPATH"), "src")
-var STDLIB = map[string]bool{
-	"archive":true, "bufio":true, "builtin":true, "bytes":true, "compress":true, "container":true, "context":true, "crypto":true,
-	"database":true, "debug":true, "encoding":true, "errors":true, "expvar":true, "flag":true, "fmt":true, "go":true, "hash":true,
-	"html":true, "image":true, "index":true, "io":true, "log":true, "math":true, "mime":true, "net":true, "os":true, "path":true,
-	"plugin":true, "reflect":true, "regexp":true, "runtime":true, "sort":true, "strconv":true, "strings":true, "sync":true,
-	"syscall":true, "testing":true, "text":true, "time":true, "unicode":true, "unsafe":true,
+type DepType int
+
+const (
+	COMP DepType = iota
+	REL
+)
+
+var gopath = path.Join(os.Getenv("GOPATH"), "src")
+var stdlib = map[string]bool{
+	"archive": true, "bufio": true, "builtin": true, "bytes": true, "compress": true, "container": true, "context": true, "crypto": true,
+	"database": true, "debug": true, "encoding": true, "errors": true, "expvar": true, "flag": true, "fmt": true, "go": true, "hash": true,
+	"html": true, "image": true, "index": true, "io": true, "log": true, "math": true, "mime": true, "net": true, "os": true, "path": true,
+	"plugin": true, "reflect": true, "regexp": true, "runtime": true, "sort": true, "strconv": true, "strings": true, "sync": true,
+	"syscall": true, "testing": true, "text": true, "time": true, "unicode": true, "unsafe": true,
 }
 
-func GetDirTree(rootPkgName string) (error, []*Package, []*Dep) {
-	rootPkgPathStr := path.Join(GOPATH, rootPkgName)
+func GetDirTree(rootPkgName string) ([]*Package, []*Dep, error) {
+	rootPkgPathStr := path.Join(gopath, rootPkgName)
 	fmt.Printf("Root package path: %s\n", rootPkgPathStr)
-	err, packageList, depList := traverse(rootPkgPathStr)
+	packageList, depList, err := traverse(rootPkgPathStr)
 	if err != nil {
-		return err, nil, nil
+		return nil, nil, err
 	}
 
-	return nil, packageList, depList
+	return packageList, depList, nil
 }
 
-func traverse(pathStr string) (error, []*Package, []*Dep) {
+func traverse(pathStr string) ([]*Package, []*Dep, error) {
 	packageList := make([]*Package, 0)
 	depList := make([]*Dep, 0)
-	goPathLen := len(GOPATH) + 1
+	goPathLen := len(gopath) + 1
 	isPkg := false
 
 	files, err := ioutil.ReadDir(pathStr)
 	if err != nil {
-		return err, nil, nil
+		return nil, nil, err
 	}
 
 	for _, file := range files {
@@ -83,19 +84,19 @@ func traverse(pathStr string) (error, []*Package, []*Dep) {
 
 		if file.IsDir() {
 			fmt.Printf("%s - %s\n", pathStr, childPathStr)
-			err, childPackageList, childDepList := traverse(childPathStr)
+			childPackageList, childDepList, err := traverse(childPathStr)
 
 			if err != nil {
-				return err, nil, nil
+				return nil, nil, err
 			}
 
-			childPathStr := childPackageList[len(childPackageList) - 1].Id
+			childPathStr := childPackageList[len(childPackageList)-1].ID
 
 			depList = append(depList, &Dep{
-				Id: fmt.Sprintf("%s<>-%s", pathStr, childPathStr),
-				From: childPathStr,
-				To: pathStr,
-				Type: COMP,
+				ID:    fmt.Sprintf("%s<>-%s", pathStr, childPathStr),
+				From:  childPathStr,
+				To:    pathStr,
+				Type:  COMP,
 				Count: 1,
 			})
 
@@ -111,7 +112,7 @@ func traverse(pathStr string) (error, []*Package, []*Dep) {
 
 	_, name := path.Split(pathStr)
 	packageList = append(packageList, &Package{
-		Id:          pathStr,
+		ID:          pathStr,
 		Name:        name,
 		PackagePath: pathStr[goPathLen:],
 		PackageDir:  pathStr,
@@ -119,14 +120,14 @@ func traverse(pathStr string) (error, []*Package, []*Dep) {
 		FuncSet:     make(map[string]bool),
 	})
 
-	return nil, packageList, depList
+	return packageList, depList, nil
 }
 
-func GetDeps(pkgName string) (error, []*Package, []*Dep) {
-	err, program := buildProgram(pkgName)
+func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
+	program, err := buildProgram(pkgName)
 
 	if err != nil {
-		return err, nil, nil
+		return nil, nil, err
 	}
 
 	packageSet, depSet := inspectPackageWithCha(program, pkgName)
@@ -143,14 +144,14 @@ func GetDeps(pkgName string) (error, []*Package, []*Dep) {
 	for _, dep := range depSet {
 		depList = append(depList, dep)
 
-		f.WriteString(dep.Id + "\n")
+		f.WriteString(dep.ID + "\n")
 	}
 	f.Sync()
 
-	return nil, packageList, depList
+	return packageList, depList, nil
 }
 
-func buildProgram(pkgName string) (error, *ssa.Program) {
+func buildProgram(pkgName string) (*ssa.Program, error) {
 	pkgPaths := []string{pkgName}
 	conf := loader.Config{}
 	s, err := conf.FromArgs(pkgPaths, false)
@@ -165,7 +166,7 @@ func buildProgram(pkgName string) (error, *ssa.Program) {
 	}
 	program := ssautil.CreateProgram(load, 0)
 	program.Build()
-	return err, program
+	return program, err
 }
 
 func inspectPackageWithCha(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
@@ -206,7 +207,7 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 	}
 
 	newPackage := &Package{
-		Id:          pkgPath,
+		ID:          pkgDir,
 		Name:        pkg.Name(),
 		PackagePath: pkgPath,
 		PackageName: pkg.Name(),
@@ -216,13 +217,13 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 		IsPkg:       true,
 		FuncSet:     map[string]bool{funcName: true},
 	}
-	packageSet[newPackage.Id] = newPackage
+	packageSet[newPackage.ID] = newPackage
 
 	return newPackage, funcName
 }
 
 func addDep(depSet map[string]*Dep, callerPkg *Package, callerFuncName string, calleePkg *Package, calleeFuncName string) {
-	id := getDepId(callerPkg, calleePkg)
+	id := getDepID(callerPkg, calleePkg)
 	depObj := depSet[id]
 	depAtFuncLevel := getDepAtFuncLevel(callerFuncName, calleeFuncName)
 
@@ -231,29 +232,29 @@ func addDep(depSet map[string]*Dep, callerPkg *Package, callerFuncName string, c
 		depObj.DepAtFunc[depAtFuncLevel] = true
 	} else {
 		newDep := &Dep{
-			Id:    id,
-			From:  callerPkg.Id,
-			To:    calleePkg.Id,
-			Count: 1,
+			ID:        id,
+			From:      callerPkg.ID,
+			To:        calleePkg.ID,
+			Count:     1,
 			DepAtFunc: map[string]bool{depAtFuncLevel: true},
-			Type: REL,
+			Type:      REL,
 		}
 		depSet[id] = newDep
 	}
 }
 
-func isSynthetic (edge *callgraph.Edge) bool {
+func isSynthetic(edge *callgraph.Edge) bool {
 	return edge.Caller.Func.Pkg == nil || edge.Callee.Func.Synthetic != ""
 }
 
-func getPkgPath (pkg *types.Package, pkgName string) (string, string, bool, bool) {
+func getPkgPath(pkg *types.Package, pkgName string) (string, string, bool, bool) {
 	pkgPath := pkg.Path()
-	pkgDir := path.Join(GOPATH, pkgPath)
+	pkgDir := path.Join(gopath, pkgPath)
 	isExternal := strings.Contains(pkgPath, "vendor") || !strings.Contains(pkgPath, pkgName) // TODO: vendor 체크가 Path()에서 왜 필요한지?
-	isStd := STDLIB[pkg.Name()]
+	isStd := stdlib[pkg.Name()]
 
-	if isExternal && len(pkgPath) > len(pkgName){
-		pkgPath = pkgPath[strings.LastIndex(pkgPath, "/vendor/") + 8:]
+	if isExternal && len(pkgPath) > len(pkgName) {
+		pkgPath = pkgPath[strings.LastIndex(pkgPath, "/vendor/")+8:]
 	} else if isStd {
 		pkgDir = pkgPath
 	}
@@ -266,8 +267,8 @@ func getFuncName(functionName string, functionSig string) string {
 	return functionName + funcSig
 }
 
-func getDepId(callerPkg *Package, calleePkg *Package) string {
-	return fmt.Sprintf("%s->%s", callerPkg.Id, calleePkg.Id)
+func getDepID(callerPkg *Package, calleePkg *Package) string {
+	return fmt.Sprintf("%s->%s", callerPkg.ID, calleePkg.ID)
 }
 
 func getDepAtFuncLevel(callerFuncName string, calleeFuncName string) string {
