@@ -1,10 +1,11 @@
 package extractor
 
 import (
-	"path"
 	"os"
+	"path"
 )
 
+// Package info
 type Package struct {
 	ID          string          `json:"id"`
 	Name        string          `json:"label"`
@@ -17,6 +18,7 @@ type Package struct {
 	FuncSet     map[string]bool `json:"funcSet"`
 }
 
+// Dep is a struct to contain dependency relationship info
 type Dep struct {
 	ID        string          `json:"id"`
 	From      string          `json:"from"`
@@ -26,8 +28,11 @@ type Dep struct {
 	DepAtFunc map[string]bool `json:"depAtFunc"`
 }
 
+// DepType is an enum for dependency relationship type
 type DepType int
 
+// COMP is a DepType to denote the composition relationship
+// REL is a DepType to denote the normal use relationship
 const (
 	COMP DepType = iota
 	REL

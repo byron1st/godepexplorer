@@ -14,6 +14,7 @@ import (
 	"golang.org/x/tools/go/ssa/ssautil"
 )
 
+// GetDeps extracts a list of packages and dependency relationships from a root package
 func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
 	program, err := buildProgram(pkgName)
 

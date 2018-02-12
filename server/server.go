@@ -9,6 +9,7 @@ import (
 	"github.com/byron1st/godepexplorer/extractor"
 )
 
+// Server struct
 type Server struct {
 	host string
 	port int
@@ -23,6 +24,7 @@ type resStruct struct {
 	Edges []*extractor.Dep     `json:"edges"`
 }
 
+// MakeServer creates and returns a new Server object.
 func MakeServer(host string, port int) *Server {
 	setRoute()
 
@@ -31,6 +33,7 @@ func MakeServer(host string, port int) *Server {
 	return server
 }
 
+// StartServer starts the corresponding server.
 func (server *Server) StartServer() {
 	if err := http.ListenAndServe(fmt.Sprintf("%s:%d", server.host, server.port), nil); err != nil {
 		log.Fatal(err)

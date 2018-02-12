@@ -1,12 +1,13 @@
 package extractor
 
 import (
-	"path/filepath"
-	"path"
 	"fmt"
 	"io/ioutil"
+	"path"
+	"path/filepath"
 )
 
+// GetDirTree extracts a list of packages and composition relationships based on the directory structure.
 func GetDirTree(rootPkgName string) ([]*Package, []*Dep, error) {
 	rootPkgPathStr := path.Join(gopath, rootPkgName)
 	fmt.Printf("Root package path: %s\n", rootPkgPathStr)
