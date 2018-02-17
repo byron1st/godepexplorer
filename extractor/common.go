@@ -7,8 +7,13 @@ import (
 
 // Package info
 type Package struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"label"`
+	ID    string       `json:"id"`
+	Label string       `json:"label"`
+	Meta  *PackageMeta `json:"meta"`
+}
+
+// PackageMeta is a meta info for a package object
+type PackageMeta struct {
 	PackagePath string          `json:"packagePath"`
 	PackageName string          `json:"packageName"`
 	PackageDir  string          `json:"packageDir"`

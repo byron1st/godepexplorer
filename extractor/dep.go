@@ -94,20 +94,22 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 	pkgObj := packageSet[pkgPath]
 
 	if pkgObj != nil {
-		pkgObj.FuncSet[funcName] = true
+		pkgObj.Meta.FuncSet[funcName] = true
 		return pkgObj, funcName
 	}
 
 	newPackage := &Package{
-		ID:          pkgDir,
-		Name:        pkg.Name(),
-		PackagePath: pkgPath,
-		PackageName: pkg.Name(),
-		PackageDir:  pkgDir,
-		IsExternal:  isExternal,
-		IsStd:       isStd,
-		IsPkg:       true,
-		FuncSet:     map[string]bool{funcName: true},
+		ID:    pkgDir,
+		Label: pkg.Name(),
+		Meta: &PackageMeta{
+			PackagePath: pkgPath,
+			PackageName: pkg.Name(),
+			PackageDir:  pkgDir,
+			IsExternal:  isExternal,
+			IsStd:       isStd,
+			IsPkg:       true,
+			FuncSet:     map[string]bool{funcName: true},
+		},
 	}
 	packageSet[newPackage.ID] = newPackage
 
