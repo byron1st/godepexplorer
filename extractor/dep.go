@@ -120,16 +120,18 @@ func addDep(depSet map[string]*Dep, callerPkg *Package, callerFuncName string, c
 	depAtFuncLevel := getDepAtFuncLevel(callerFuncName, calleeFuncName)
 
 	if depObj != nil {
-		depObj.Count++
-		depObj.DepAtFunc[depAtFuncLevel] = true
+		depObj.Meta.Count++
+		depObj.Meta.DepAtFunc[depAtFuncLevel] = true
 	} else {
 		newDep := &Dep{
-			ID:        id,
-			From:      callerPkg.ID,
-			To:        calleePkg.ID,
-			Count:     1,
-			DepAtFunc: map[string]bool{depAtFuncLevel: true},
-			Type:      REL,
+			ID:   id,
+			From: callerPkg.ID,
+			To:   calleePkg.ID,
+			Meta: &DepMeta{
+				Count:     1,
+				DepAtFunc: map[string]bool{depAtFuncLevel: true},
+				Type:      REL,
+			},
 		}
 		depSet[id] = newDep
 	}

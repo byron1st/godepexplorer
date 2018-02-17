@@ -20,9 +20,14 @@ type Package struct {
 
 // Dep is a struct to contain dependency relationship info
 type Dep struct {
-	ID        string          `json:"id"`
-	From      string          `json:"from"`
-	To        string          `json:"to"`
+	ID   string   `json:"id"`
+	From string   `json:"from"`
+	To   string   `json:"to"`
+	Meta *DepMeta `json:"meta"`
+}
+
+// DepMeta is meta info for a dep object
+type DepMeta struct {
 	Type      DepType         `json:"type"`
 	Count     int             `json:"count"`
 	DepAtFunc map[string]bool `json:"depAtFunc"`

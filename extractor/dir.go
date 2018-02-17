@@ -48,11 +48,13 @@ func traverse(pathStr string) ([]*Package, []*Dep, error) {
 			childPathStr := childPackageList[len(childPackageList)-1].ID
 
 			depList = append(depList, &Dep{
-				ID:    fmt.Sprintf("%s<>-%s", pathStr, childPathStr),
-				From:  childPathStr,
-				To:    pathStr,
-				Type:  COMP,
-				Count: 1,
+				ID:   fmt.Sprintf("%s<>-%s", pathStr, childPathStr),
+				From: childPathStr,
+				To:   pathStr,
+				Meta: &DepMeta{
+					Type:  COMP,
+					Count: 1,
+				},
 			})
 
 			for _, childDep := range childDepList {
