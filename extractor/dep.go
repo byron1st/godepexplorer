@@ -146,7 +146,7 @@ func isSynthetic(edge *callgraph.Edge) bool {
 func getPkgPath(pkg *types.Package, pkgName string) (string, string, bool, bool) {
 	pkgPath := pkg.Path()
 	pkgDir := path.Join(gopath, pkgPath)
-	isExternal := strings.Contains(pkgPath, "vendor") || !strings.Contains(pkgPath, pkgName) // TODO: vendor 체크가 Path()에서 왜 필요한지?
+	isExternal := strings.Contains(pkgPath, "vendor") // vendor만 체크.
 	isStd := stdlib[pkg.Name()]
 
 	if isExternal && len(pkgPath) > len(pkgName) {
