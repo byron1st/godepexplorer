@@ -147,7 +147,9 @@ func getPkgPath(pkg *types.Package, pkgName string) (string, string, bool, bool)
 	pkgPath := pkg.Path()
 	pkgDir := path.Join(gopath, pkgPath)
 	isExternal := strings.Contains(pkgPath, "vendor") // vendor만 체크.
-	isStd := stdlib[pkg.Name()]
+
+	firstPath := strings.Split(pkgPath, "/")[0]
+	isStd := stdlib[firstPath]
 
 	if isExternal && len(pkgPath) > len(pkgName) {
 		pkgPath = pkgPath[strings.LastIndex(pkgPath, "/vendor/")+8:]
