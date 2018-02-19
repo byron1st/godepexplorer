@@ -24,6 +24,10 @@ type resStruct struct {
 	Edges []*extractor.Dep     `json:"edges"`
 }
 
+type errResStruct struct {
+	Error string `json:"error"`
+}
+
 // MakeServer creates and returns a new Server object.
 func MakeServer(host string, port int) *Server {
 	setRoute()
@@ -56,6 +60,12 @@ func handlerGenerator(extractorFunc func(string) ([]*extractor.Package, []*extra
 
 		pkgName := req.PkgName
 		fmt.Printf("Package name: %s\n", pkgName)
+
+		defer func() {
+			if r := recover(); r != nil {
+				json.NewEncoder(writer).Encode(&errResStruct{fmt.Sprint(r)})
+			}
+		}()
 		nodes, edges, err := extractorFunc(pkgName)
 
 		fmt.Printf("nodes len: %d, edges len: %d\n", len(nodes), len(edges))
