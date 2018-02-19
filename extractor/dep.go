@@ -146,10 +146,8 @@ func isSynthetic(edge *callgraph.Edge) bool {
 func getPkgPath(pkg *types.Package, pkgName string) (string, string, bool, bool) {
 	pkgPath := pkg.Path()
 	pkgDir := path.Join(gopath, pkgPath)
-	isExternal := strings.Contains(pkgPath, "vendor") // vendor만 체크.
-
-	firstPath := strings.Split(pkgPath, "/")[0]
-	isStd := stdlib[firstPath]
+	isExternal := isExternal(pkgPath)
+	isStd := isStd(pkgPath)
 
 	if isExternal && len(pkgPath) > len(pkgName) {
 		pkgPath = pkgPath[strings.LastIndex(pkgPath, "/vendor/")+8:]
@@ -171,4 +169,13 @@ func getDepID(callerPkg *Package, calleePkg *Package) string {
 
 func getDepAtFuncLevel(callerFuncName string, calleeFuncName string) string {
 	return fmt.Sprintf("%s->%s", callerFuncName, calleeFuncName)
+}
+
+func isExternal(pkgPath string) bool {
+	return strings.Contains(pkgPath, "vendor")
+}
+
+func isStd(pkgPath string) bool {
+	firstPath := strings.Split(pkgPath, "/")[0]
+	return stdlib[firstPath]
 }
