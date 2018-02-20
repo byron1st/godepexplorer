@@ -91,7 +91,7 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 
 	funcName := getFuncName(n.Func.Name(), n.Func.Signature.String())
 
-	pkgObj := packageSet[pkgDir]
+	pkgObj := packageSet[pkgPath]
 
 	if pkgObj != nil {
 		pkgObj.Meta.FuncSet[funcName] = true
@@ -99,7 +99,7 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 	}
 
 	newPackage := &Package{
-		ID:    pkgDir,
+		ID:    pkgPath,
 		Label: pkg.Name(),
 		Meta: &PackageMeta{
 			PackagePath: pkgPath,
