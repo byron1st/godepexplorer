@@ -45,30 +45,27 @@ func (server *Server) StartServer() {
 }
 
 func setRoute() {
-	http.HandleFunc("/dir", handlerGenerator(extractor.GetDirTree))
-	http.HandleFunc("/dep", handlerGenerator(extractor.GetDeps))
+	http.HandleFunc("/dep", handleGetDeps)
 }
 
-func handlerGenerator(extractorFunc func(string) ([]*extractor.Package, []*extractor.Dep, error)) func(http.ResponseWriter, *http.Request) {
-	return func(writer http.ResponseWriter, request *http.Request) {
-		var req reqStruct
-		err := json.NewDecoder(request.Body).Decode(&req)
+func handleGetDeps(writer http.ResponseWriter, request *http.Request) {
+	var req reqStruct
+	err := json.NewDecoder(request.Body).Decode(&req)
 
-		if err != nil {
-			http.Error(writer, err.Error(), 400)
-		}
-
-		pkgName := req.PkgName
-		fmt.Printf("Package name: %s\n", pkgName)
-
-		defer func() {
-			if r := recover(); r != nil {
-				json.NewEncoder(writer).Encode(&errResStruct{fmt.Sprint(r)})
-			}
-		}()
-		nodes, edges, err := extractorFunc(pkgName)
-
-		fmt.Printf("nodes len: %d, edges len: %d\n", len(nodes), len(edges))
-		json.NewEncoder(writer).Encode(&resStruct{nodes, edges})
+	if err != nil {
+		http.Error(writer, err.Error(), 400)
 	}
+
+	pkgName := req.PkgName
+	fmt.Printf("Package name: %s\n", pkgName)
+
+	defer func() {
+		if r := recover(); r != nil {
+			json.NewEncoder(writer).Encode(&errResStruct{fmt.Sprint(r)})
+		}
+	}()
+	nodes, edges, err := extractor.GetDeps(pkgName)
+
+	fmt.Printf("nodes len: %d, edges len: %d\n", len(nodes), len(edges))
+	json.NewEncoder(writer).Encode(&resStruct{nodes, edges})
 }
