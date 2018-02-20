@@ -33,9 +33,15 @@ type Dep struct {
 
 // DepMeta is meta info for a dep object
 type DepMeta struct {
-	Type      DepType         `json:"type"`
-	Count     int             `json:"count"`
-	DepAtFunc map[string]bool `json:"depAtFunc"`
+	Type         DepType               `json:"type"`
+	Count        int                   `json:"count"`
+	DepAtFuncSet map[string]*DepAtFunc `json:"depAtFuncSet"`
+}
+
+type DepAtFunc struct {
+	ID   string `json:"id"`
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 // DepType is an enum for dependency relationship type

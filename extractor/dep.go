@@ -119,20 +119,20 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 func addDep(depSet map[string]*Dep, callerPkg *Package, callerFuncName string, calleePkg *Package, calleeFuncName string) {
 	id := getDepID(callerPkg, calleePkg)
 	depObj := depSet[id]
-	depAtFuncLevel := getDepAtFuncLevel(callerFuncName, calleeFuncName)
+	depAtFuncID := getDepAtFuncLevel(callerFuncName, calleeFuncName)
 
 	if depObj != nil {
 		depObj.Meta.Count++
-		depObj.Meta.DepAtFunc[depAtFuncLevel] = true
+		depObj.Meta.DepAtFuncSet[depAtFuncID] = &DepAtFunc{depAtFuncID, callerFuncName, calleeFuncName}
 	} else {
 		newDep := &Dep{
 			ID:   id,
 			From: callerPkg.ID,
 			To:   calleePkg.ID,
 			Meta: &DepMeta{
-				Count:     1,
-				DepAtFunc: map[string]bool{depAtFuncLevel: true},
-				Type:      REL,
+				Count:        1,
+				DepAtFuncSet: map[string]*DepAtFunc{depAtFuncID: {depAtFuncID, callerFuncName, calleeFuncName}},
+				Type:         REL,
 			},
 		}
 		depSet[id] = newDep
