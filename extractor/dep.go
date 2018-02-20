@@ -3,7 +3,6 @@ package extractor
 import (
 	"fmt"
 	"go/types"
-	"os"
 	"path"
 	"strings"
 
@@ -31,14 +30,9 @@ func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
 		packageList = append(packageList, pkg)
 	}
 
-	f, _ := os.Create("output.csv")
-	defer f.Close()
 	for _, dep := range depSet {
 		depList = append(depList, dep)
-
-		f.WriteString(dep.ID + "\n")
 	}
-	f.Sync()
 
 	return packageList, depList, nil
 }
