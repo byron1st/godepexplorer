@@ -91,7 +91,7 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 
 	funcName := getFuncName(n.Func.Name(), n.Func.Signature.String())
 
-	pkgObj := packageSet[pkgPath]
+	pkgObj := packageSet[pkgDir]
 
 	if pkgObj != nil {
 		pkgObj.Meta.FuncSet[funcName] = true
