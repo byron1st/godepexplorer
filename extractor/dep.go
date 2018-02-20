@@ -5,23 +5,35 @@ import (
 	"go/types"
 	"path"
 	"strings"
+	"errors"
 
 	"golang.org/x/tools/go/callgraph"
 	"golang.org/x/tools/go/callgraph/cha"
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
+	"golang.org/x/tools/go/callgraph/rta"
+	"golang.org/x/tools/go/callgraph/static"
+	"golang.org/x/tools/go/pointer"
 )
 
 // GetDeps extracts a list of packages and dependency relationships from a root package
 func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
+	return nil, nil, errors.New("test")
 	program, err := buildProgram(pkgName)
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	packageSet, depSet := inspectPackageWithCha(program, pkgName)
+	//packageSet, depSet := inspectPackageWithCHA(program, pkgName)
+	//packageSet, depSet := inspectPackageWithRTA(program, pkgName)
+	//packageSet, depSet := inspectPackageWithStatic(program, pkgName)
+	packageSet, depSet := inspectPackageWithPointer(program, pkgName)
+
+	if packageSet == nil || depSet == nil {
+		return nil, nil, errors.New("there is no main package")
+	}
 
 	packageList := make([]*Package, 0)
 	depList := make([]*Dep, 0)
@@ -40,26 +52,73 @@ func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
 func buildProgram(pkgName string) (*ssa.Program, error) {
 	pkgPaths := []string{pkgName}
 	conf := loader.Config{}
-	s, err := conf.FromArgs(pkgPaths, false)
+	_, err := conf.FromArgs(pkgPaths, false)
 	if err != nil {
-		println(err.Error())
-		println(s)
+		return nil, err
 	}
-	load, err := conf.Load()
 
+	load, err := conf.Load()
 	if err != nil {
-		println(err.Error())
+		return nil, err
 	}
+
 	program := ssautil.CreateProgram(load, 0)
 	program.Build()
 	return program, err
 }
 
-func inspectPackageWithCha(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
+func inspectPackageWithStatic(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
+	fmt.Println("Analyze only static calls")
+	return traverseCallgraph(static.CallGraph(program), pkgName)
+}
+
+func inspectPackageWithCHA(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
+	fmt.Println("Analyze using the Class Hierarchy Analysis(CHA) algorithm")
+	return traverseCallgraph(cha.CallGraph(program), pkgName)
+}
+
+func inspectPackageWithRTA(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
+	fmt.Println("Analyze using the Rapid Type Analysis(RTA) algorithm")
+	pkgs := program.AllPackages()
+
+	var mains []*ssa.Package
+	mains = append(mains, ssautil.MainPackages(pkgs)...)
+
+	var roots []*ssa.Function
+	for _, main := range mains {
+		roots = append(roots, main.Func("init"), main.Func("main"))
+	}
+	cg := rta.Analyze(roots, true).CallGraph
+
+	return traverseCallgraph(cg, pkgName)
+}
+
+func inspectPackageWithPointer(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
+	fmt.Println("Analyze using the inclusion-based Points-To Analysis algorithm")
+	pkgs := program.AllPackages()
+
+	var mains []*ssa.Package
+	mains = append(mains, ssautil.MainPackages(pkgs)...)
+
+	if len(mains) == 0 {
+		return nil, nil
+	}
+
+	config := &pointer.Config{
+		Mains: mains,
+		BuildCallGraph: true,
+	}
+
+	analysis, _ := pointer.Analyze(config)
+
+	return traverseCallgraph(analysis.CallGraph, pkgName)
+}
+
+func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package, map[string]*Dep) {
 	packageSet := make(map[string]*Package)
 	depSet := make(map[string]*Dep)
 
-	callgraph.GraphVisitEdges(cha.CallGraph(program), func(e *callgraph.Edge) error {
+	callgraph.GraphVisitEdges(cg, func(e *callgraph.Edge) error {
 		if isSynthetic(e) {
 			return nil
 		}
