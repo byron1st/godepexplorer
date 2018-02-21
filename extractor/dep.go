@@ -19,7 +19,6 @@ import (
 
 // GetDeps extracts a list of packages and dependency relationships from a root package
 func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
-	return nil, nil, errors.New("test")
 	program, err := buildProgram(pkgName)
 
 	if err != nil {
