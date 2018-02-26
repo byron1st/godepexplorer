@@ -15,11 +15,16 @@ type Server struct {
 	port int
 }
 
-type reqStruct struct {
+type IRequest struct {
 	PkgName string `json:"pkgName"`
 }
 
-type resStruct struct {
+type IResponse struct {
+	Graph   *IListGraph `json:"graph"`
+	PkgName string      `json:"pkgName"`
+}
+
+type IListGraph struct {
 	Nodes []*extractor.Package `json:"nodes"`
 	Edges []*extractor.Dep     `json:"edges"`
 }
@@ -45,7 +50,7 @@ func setRoute() {
 }
 
 func handleGetDeps(writer http.ResponseWriter, request *http.Request) {
-	var req reqStruct
+	var req IRequest
 	err := json.NewDecoder(request.Body).Decode(&req)
 
 	if err != nil {
@@ -70,5 +75,5 @@ func handleGetDeps(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	fmt.Printf("nodes len: %d, edges len: %d\n", len(nodes), len(edges))
-	json.NewEncoder(writer).Encode(&resStruct{nodes, edges})
+	json.NewEncoder(writer).Encode(&IResponse{&IListGraph{nodes, edges}, pkgName})
 }
