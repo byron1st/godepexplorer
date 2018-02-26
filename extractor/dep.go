@@ -1,23 +1,23 @@
 package extractor
 
 import (
+	"errors"
 	"fmt"
 	"go/types"
 	"path"
 	"strings"
-	"errors"
 
 	"golang.org/x/tools/go/callgraph"
 	"golang.org/x/tools/go/callgraph/cha"
-	"golang.org/x/tools/go/loader"
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
 	"golang.org/x/tools/go/callgraph/rta"
 	"golang.org/x/tools/go/callgraph/static"
+	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/pointer"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
-// GetDeps extracts a list of packages and dependency relationships from a root package
+// GetDeps extracts a list of packages and dependency relationships from a root package.
 func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
 	program, err := buildProgram(pkgName)
 
@@ -27,8 +27,8 @@ func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
 
 	//packageSet, depSet := inspectPackageWithCHA(program, pkgName)
 	//packageSet, depSet := inspectPackageWithRTA(program, pkgName)
-	//packageSet, depSet := inspectPackageWithStatic(program, pkgName)
-	packageSet, depSet := inspectPackageWithPointer(program, pkgName)
+	packageSet, depSet := inspectPackageWithStatic(program, pkgName)
+	// packageSet, depSet := inspectPackageWithPointer(program, pkgName)
 
 	if packageSet == nil || depSet == nil {
 		return nil, nil, errors.New("there is no main package")
@@ -104,7 +104,7 @@ func inspectPackageWithPointer(program *ssa.Program, pkgName string) (map[string
 	}
 
 	config := &pointer.Config{
-		Mains: mains,
+		Mains:          mains,
 		BuildCallGraph: true,
 	}
 
