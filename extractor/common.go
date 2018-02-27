@@ -38,6 +38,7 @@ type DepMeta struct {
 	DepAtFuncSet map[string]*DepAtFunc `json:"depAtFuncSet"`
 }
 
+// DepAtFunc is a struct for dependencies at the function level
 type DepAtFunc struct {
 	ID   string `json:"id"`
 	From string `json:"from"`
