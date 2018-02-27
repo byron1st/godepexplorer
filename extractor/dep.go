@@ -122,9 +122,9 @@ func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package
 			return nil
 		}
 
-		if e.Caller.Func.Pkg.Pkg.Path() != pkgName {
-			return nil
-		}
+		//if e.Caller.Func.Pkg.Pkg.Path() != pkgName {
+		//	return nil
+		//}
 
 		callerPkg, callerFuncName := addPackage(packageSet, e.Caller, pkgName)
 		calleePkg, calleeFuncName := addPackage(packageSet, e.Callee, pkgName)
