@@ -15,15 +15,18 @@ type Server struct {
 	port int
 }
 
+// IRequest is a request structure for communicating with ui
 type IRequest struct {
 	PkgName string `json:"pkgName"`
 }
 
+// IResponse is a response structure for communicating with ui
 type IResponse struct {
 	Graph   *IListGraph `json:"graph"`
 	PkgName string      `json:"pkgName"`
 }
 
+// IListGraph is a type for the response
 type IListGraph struct {
 	Nodes []*extractor.Package `json:"nodes"`
 	Edges []*extractor.Dep     `json:"edges"`
