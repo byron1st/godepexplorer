@@ -16,9 +16,7 @@ type Server struct {
 }
 
 type IRequest struct {
-	PkgName      string          `json:"pkgName"`
-	IsNewlyAdded bool            `json:"isNewlyAdded"`
-	FuncSet      map[string]bool `json:"funcSet"`
+	PkgName string `json:"pkgName"`
 }
 
 type IResponse struct {
@@ -62,11 +60,6 @@ func handleGetDeps(writer http.ResponseWriter, request *http.Request) {
 
 	pkgName := req.PkgName
 	fmt.Printf("Package name: %s\n", pkgName)
-	fmt.Printf("Is newly added?:%t\n", req.IsNewlyAdded)
-	fmt.Printf("Functions:\n")
-	for funcName := range req.FuncSet {
-		fmt.Printf("%s\n", funcName)
-	}
 
 	defer func() {
 		if r := recover(); r != nil {
