@@ -14,13 +14,15 @@ type Package struct {
 
 // PackageMeta is a meta info for a package object
 type PackageMeta struct {
-	PackagePath string          `json:"packagePath"`
-	PackageName string          `json:"packageName"`
-	PackageDir  string          `json:"packageDir"`
-	IsPkg       bool            `json:"isPkg"`
-	IsExternal  bool            `json:"isExternal"`
-	IsStd       bool            `json:"isStd"`
-	FuncSet     map[string]bool `json:"funcSet"`
+	PackagePath     string          `json:"packagePath"`
+	PackageName     string          `json:"packageName"`
+	PackageDir      string          `json:"packageDir"`
+	IsPkg           bool            `json:"isPkg"`
+	IsExternal      bool            `json:"isExternal"`
+	IsStd           bool            `json:"isStd"`
+	FuncSet         map[string]bool `json:"funcSet"`
+	SinkEdgeIDSet   map[string]bool `json:"sinkEdgeIDSet"`
+	SourceEdgeIDSet map[string]bool `json:"sourceEdgeIDSet"`
 }
 
 // Dep is a struct to contain dependency relationship info

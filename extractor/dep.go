@@ -130,7 +130,10 @@ func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package
 		callerPkg, callerFuncName := addPackage(packageSet, e.Caller, pkgName)
 		calleePkg, calleeFuncName := addPackage(packageSet, e.Callee, pkgName)
 
-		addDep(depSet, callerPkg.ID, callerFuncName, calleePkg.ID, calleeFuncName)
+		depID := addDep(depSet, callerPkg.ID, callerFuncName, calleePkg.ID, calleeFuncName)
+
+		addDepToPackage(callerPkg, depID, true)
+		addDepToPackage(calleePkg, depID, false)
 
 		return nil
 	})
@@ -155,13 +158,15 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 		ID:    pkgPath,
 		Label: pkg.Name(),
 		Meta: &PackageMeta{
-			PackagePath: pkgPath,
-			PackageName: pkg.Name(),
-			PackageDir:  pkgDir,
-			IsExternal:  isExternal,
-			IsStd:       isStd,
-			IsPkg:       true,
-			FuncSet:     map[string]bool{funcName: true},
+			PackagePath:     pkgPath,
+			PackageName:     pkg.Name(),
+			PackageDir:      pkgDir,
+			IsExternal:      isExternal,
+			IsStd:           isStd,
+			IsPkg:           true,
+			FuncSet:         map[string]bool{funcName: true},
+			SourceEdgeIDSet: make(map[string]bool),
+			SinkEdgeIDSet:   make(map[string]bool),
 		},
 	}
 	packageSet[newPackage.ID] = newPackage
@@ -169,7 +174,15 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 	return newPackage, funcName
 }
 
-func addDep(depSet map[string]*Dep, callerPkgID string, callerFuncName string, calleePkgID string, calleeFuncName string) {
+func addDepToPackage(pkg *Package, depID string, isSource bool) {
+	if isSource {
+		pkg.Meta.SourceEdgeIDSet[depID] = true
+	} else {
+		pkg.Meta.SinkEdgeIDSet[depID] = true
+	}
+}
+
+func addDep(depSet map[string]*Dep, callerPkgID string, callerFuncName string, calleePkgID string, calleeFuncName string) string {
 	id := getDepID(callerPkgID, calleePkgID)
 	depObj := depSet[id]
 	depAtFuncID := getDepAtFuncLevel(callerFuncName, calleeFuncName)
@@ -190,6 +203,8 @@ func addDep(depSet map[string]*Dep, callerPkgID string, callerFuncName string, c
 		}
 		depSet[id] = newDep
 	}
+
+	return id
 }
 
 func isSynthetic(edge *callgraph.Edge) bool {
