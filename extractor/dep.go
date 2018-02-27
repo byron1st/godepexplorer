@@ -25,8 +25,8 @@ func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
 		return nil, nil, err
 	}
 
-	//packageSet, depSet := inspectPackageWithCHA(program, pkgName)
-	//packageSet, depSet := inspectPackageWithRTA(program, pkgName)
+	// packageSet, depSet := inspectPackageWithCHA(program, pkgName)
+	// packageSet, depSet := inspectPackageWithRTA(program, pkgName)
 	packageSet, depSet := inspectPackageWithStatic(program, pkgName)
 	// packageSet, depSet := inspectPackageWithPointer(program, pkgName)
 
@@ -122,9 +122,10 @@ func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package
 			return nil
 		}
 
-		//if e.Caller.Func.Pkg.Pkg.Path() != pkgName {
-		//	return nil
-		//}
+		// Remove an edge if packages of its caller and callee are same
+		if e.Caller.Func.Pkg.Pkg.Path() == e.Callee.Func.Pkg.Pkg.Path() {
+			return nil
+		}
 
 		callerPkg, callerFuncName := addPackage(packageSet, e.Caller, pkgName)
 		calleePkg, calleeFuncName := addPackage(packageSet, e.Callee, pkgName)
@@ -139,7 +140,7 @@ func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package
 
 func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName string) (*Package, string) {
 	pkg := n.Func.Pkg.Pkg
-	pkgPath, pkgDir, isExternal, isStd := getPkgPath(pkg, pkgName)
+	pkgPath, pkgDir, isExternal, isStd := getPkgMetaRelatedToPath(pkg, pkgName)
 
 	funcName := getFuncName(n.Func.Name(), n.Func.Signature.String())
 
@@ -195,7 +196,7 @@ func isSynthetic(edge *callgraph.Edge) bool {
 	return edge.Caller.Func.Pkg == nil || edge.Callee.Func.Synthetic != ""
 }
 
-func getPkgPath(pkg *types.Package, pkgName string) (string, string, bool, bool) {
+func getPkgMetaRelatedToPath(pkg *types.Package, pkgName string) (string, string, bool, bool) {
 	pkgPath := pkg.Path()
 	pkgDir := path.Join(gopath, pkgPath)
 	isExternal := isExternal(pkgPath)
