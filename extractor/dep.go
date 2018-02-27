@@ -68,7 +68,9 @@ func buildProgram(pkgName string) (*ssa.Program, error) {
 
 func inspectPackageWithStatic(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
 	fmt.Println("Analyze only static calls")
-	return traverseCallgraph(static.CallGraph(program), pkgName)
+	packageSet, depSet := traverseCallgraph(static.CallGraph(program), pkgName)
+
+	return constructTree(packageSet), depSet
 }
 
 func inspectPackageWithCHA(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
@@ -141,6 +143,21 @@ func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package
 	return packageSet, depSet
 }
 
+func constructTree(packageSet map[string]*Package) map[string]*Package {
+	for pkgID, pkg := range packageSet {
+		pkgStringTokens := strings.Split(pkg.ID, "/")
+		if len(pkgStringTokens) != 1 {
+			parentPkgID := strings.Join(pkgStringTokens[:len(pkgStringTokens)-1], "/")
+			if packageSet[parentPkgID] != nil {
+				packageSet[parentPkgID].Meta.Children[pkgID] = true
+				pkg.Meta.Parent = parentPkgID
+			}
+		}
+	}
+
+	return packageSet
+}
+
 func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName string) (*Package, string) {
 	pkg := n.Func.Pkg.Pkg
 	pkgPath, pkgDir, isExternal, isStd := getPkgMetaRelatedToPath(pkg, pkgName)
@@ -167,6 +184,8 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 			FuncSet:         map[string]bool{funcName: true},
 			SourceEdgeIDSet: make(map[string]bool),
 			SinkEdgeIDSet:   make(map[string]bool),
+			Parent:          "",
+			Children:        make(map[string]bool),
 		},
 	}
 	packageSet[newPackage.ID] = newPackage

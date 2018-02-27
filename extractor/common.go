@@ -23,6 +23,8 @@ type PackageMeta struct {
 	FuncSet         map[string]bool `json:"funcSet"`
 	SinkEdgeIDSet   map[string]bool `json:"sinkEdgeIDSet"`
 	SourceEdgeIDSet map[string]bool `json:"sourceEdgeIDSet"`
+	Parent          string          `json:"parent"`
+	Children        map[string]bool `json:"children"`
 }
 
 // Dep is a struct to contain dependency relationship info
