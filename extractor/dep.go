@@ -167,7 +167,6 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 	pkgObj := packageSet[pkgPath]
 
 	if pkgObj != nil {
-		pkgObj.Meta.FuncSet[funcName] = true
 		return pkgObj, funcName
 	}
 
@@ -181,7 +180,6 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 			IsExternal:      isExternal,
 			IsStd:           isStd,
 			IsPkg:           true,
-			FuncSet:         map[string]bool{funcName: true},
 			SourceEdgeIDSet: make(map[string]bool),
 			SinkEdgeIDSet:   make(map[string]bool),
 			Parent:          "",
@@ -207,7 +205,6 @@ func addDep(depSet map[string]*Dep, callerPkgID string, callerFuncName string, c
 	depAtFuncID := getDepAtFuncLevel(callerFuncName, calleeFuncName)
 
 	if depObj != nil {
-		depObj.Meta.Count++
 		depObj.Meta.DepAtFuncSet[depAtFuncID] = &DepAtFunc{depAtFuncID, callerFuncName, calleeFuncName}
 	} else {
 		newDep := &Dep{
@@ -215,7 +212,6 @@ func addDep(depSet map[string]*Dep, callerPkgID string, callerFuncName string, c
 			From: callerPkgID,
 			To:   calleePkgID,
 			Meta: &DepMeta{
-				Count:        1,
 				DepAtFuncSet: map[string]*DepAtFunc{depAtFuncID: {depAtFuncID, callerFuncName, calleeFuncName}},
 				Type:         REL,
 			},

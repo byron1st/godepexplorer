@@ -20,7 +20,6 @@ type PackageMeta struct {
 	IsPkg           bool            `json:"isPkg"`
 	IsExternal      bool            `json:"isExternal"`
 	IsStd           bool            `json:"isStd"`
-	FuncSet         map[string]bool `json:"funcSet"`
 	SinkEdgeIDSet   map[string]bool `json:"sinkEdgeIDSet"`
 	SourceEdgeIDSet map[string]bool `json:"sourceEdgeIDSet"`
 	Parent          string          `json:"parent"`
@@ -38,7 +37,6 @@ type Dep struct {
 // DepMeta is meta info for a dep object
 type DepMeta struct {
 	Type         DepType               `json:"type"`
-	Count        int                   `json:"count"`
 	DepAtFuncSet map[string]*DepAtFunc `json:"depAtFuncSet"`
 }
 
