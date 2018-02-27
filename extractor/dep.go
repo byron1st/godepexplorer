@@ -130,7 +130,7 @@ func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package
 		callerPkg, callerFuncName := addPackage(packageSet, e.Caller, pkgName)
 		calleePkg, calleeFuncName := addPackage(packageSet, e.Callee, pkgName)
 
-		addDep(depSet, callerPkg, callerFuncName, calleePkg, calleeFuncName)
+		addDep(depSet, callerPkg.ID, callerFuncName, calleePkg.ID, calleeFuncName)
 
 		return nil
 	})
@@ -169,8 +169,8 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 	return newPackage, funcName
 }
 
-func addDep(depSet map[string]*Dep, callerPkg *Package, callerFuncName string, calleePkg *Package, calleeFuncName string) {
-	id := getDepID(callerPkg, calleePkg)
+func addDep(depSet map[string]*Dep, callerPkgID string, callerFuncName string, calleePkgID string, calleeFuncName string) {
+	id := getDepID(callerPkgID, calleePkgID)
 	depObj := depSet[id]
 	depAtFuncID := getDepAtFuncLevel(callerFuncName, calleeFuncName)
 
@@ -180,8 +180,8 @@ func addDep(depSet map[string]*Dep, callerPkg *Package, callerFuncName string, c
 	} else {
 		newDep := &Dep{
 			ID:   id,
-			From: callerPkg.ID,
-			To:   calleePkg.ID,
+			From: callerPkgID,
+			To:   calleePkgID,
 			Meta: &DepMeta{
 				Count:        1,
 				DepAtFuncSet: map[string]*DepAtFunc{depAtFuncID: {depAtFuncID, callerFuncName, calleeFuncName}},
@@ -216,8 +216,8 @@ func getFuncName(functionName string, functionSig string) string {
 	return functionName + funcSig
 }
 
-func getDepID(callerPkg *Package, calleePkg *Package) string {
-	return fmt.Sprintf("%s->%s", callerPkg.ID, calleePkg.ID)
+func getDepID(callerPkgID string, calleePkgID string) string {
+	return fmt.Sprintf("%s->%s", callerPkgID, calleePkgID)
 }
 
 func getDepAtFuncLevel(callerFuncName string, calleeFuncName string) string {
