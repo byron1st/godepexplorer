@@ -60,5 +60,5 @@ var stdlib = map[string]bool{
 	"database": true, "debug": true, "encoding": true, "errors": true, "expvar": true, "flag": true, "fmt": true, "go": true, "hash": true,
 	"html": true, "image": true, "index": true, "io": true, "log": true, "math": true, "mime": true, "net": true, "os": true, "path": true,
 	"plugin": true, "reflect": true, "regexp": true, "runtime": true, "sort": true, "strconv": true, "strings": true, "sync": true,
-	"syscall": true, "testing": true, "text": true, "time": true, "unicode": true, "unsafe": true,
+	"syscall": true, "testing": true, "text": true, "time": true, "unicode": true, "unsafe": true, "internal": true,
 }
