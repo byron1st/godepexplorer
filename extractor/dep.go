@@ -70,7 +70,7 @@ func inspectPackageWithStatic(program *ssa.Program, pkgName string) (map[string]
 	fmt.Println("Analyze only static calls")
 	packageSet, depSet := traverseCallgraph(static.CallGraph(program), pkgName)
 
-	return constructTree(packageSet), depSet
+	return constructTree(packageSet, depSet)
 }
 
 func inspectPackageWithCHA(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
@@ -143,7 +143,7 @@ func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package
 	return packageSet, depSet
 }
 
-func constructTree(packageSet map[string]*Package) map[string]*Package {
+func constructTree(packageSet map[string]*Package, depSet map[string]*Dep) (map[string]*Package, map[string]*Dep) {
 	for pkgID, pkg := range packageSet {
 		pkgStringTokens := strings.Split(pkg.ID, "/")
 		if len(pkgStringTokens) != 1 {
@@ -151,11 +151,14 @@ func constructTree(packageSet map[string]*Package) map[string]*Package {
 			if packageSet[parentPkgID] != nil {
 				packageSet[parentPkgID].Meta.Children[pkgID] = true
 				pkg.Meta.Parent = parentPkgID
+
+				compDep := getCompDep(parentPkgID, pkgID)
+				depSet[compDep.ID] = compDep
 			}
 		}
 	}
 
-	return packageSet
+	return packageSet, depSet
 }
 
 func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName string) (*Package, string) {
@@ -222,6 +225,18 @@ func addDep(depSet map[string]*Dep, callerPkgID string, callerFuncName string, c
 	return id
 }
 
+func getCompDep(parentPkgID string, childPkgID string) *Dep {
+	return &Dep{
+		ID:   getCompDepID(parentPkgID, childPkgID),
+		From: parentPkgID,
+		To:   childPkgID,
+		Meta: &DepMeta{
+			Type:         COMP,
+			DepAtFuncSet: make(map[string]*DepAtFunc),
+		},
+	}
+}
+
 func isSynthetic(edge *callgraph.Edge) bool {
 	return edge.Caller.Func.Pkg == nil || edge.Callee.Func.Synthetic != ""
 }
@@ -248,6 +263,10 @@ func getFuncName(functionName string, functionSig string) string {
 
 func getDepID(callerPkgID string, calleePkgID string) string {
 	return fmt.Sprintf("%s->%s", callerPkgID, calleePkgID)
+}
+
+func getCompDepID(parentPkgID string, childPkgID string) string {
+	return fmt.Sprintf("%s<>-%s", parentPkgID, childPkgID)
 }
 
 func getDepAtFuncLevel(callerFuncName string, calleeFuncName string) string {
