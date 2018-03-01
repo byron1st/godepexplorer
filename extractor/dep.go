@@ -1,6 +1,8 @@
 package extractor
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"go/types"
@@ -174,7 +176,7 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 	}
 
 	newPackage := &Package{
-		ID:    pkgPath,
+		ID:    getPkgID(pkgPath),
 		Label: pkg.Name(),
 		Meta: &PackageMeta{
 			PackagePath:     pkgPath,
@@ -205,7 +207,7 @@ func addDepToPackage(pkg *Package, depID string, isSource bool) {
 func addDep(depSet map[string]*Dep, callerPkgID string, callerFuncName string, calleePkgID string, calleeFuncName string) string {
 	id := getDepID(callerPkgID, calleePkgID)
 	depObj := depSet[id]
-	depAtFuncID := getDepAtFuncLevel(callerFuncName, calleeFuncName)
+	depAtFuncID := getDepAtFuncID(callerFuncName, calleeFuncName)
 
 	if depObj != nil {
 		depObj.Meta.DepAtFuncSet[depAtFuncID] = &DepAtFunc{depAtFuncID, callerFuncName, calleeFuncName}
@@ -261,16 +263,26 @@ func getFuncName(functionName string, functionSig string) string {
 	return functionName + funcSig
 }
 
+func getPkgID(pkgPath string) string {
+	return hashByMD5(pkgPath)
+}
+
 func getDepID(callerPkgID string, calleePkgID string) string {
-	return fmt.Sprintf("%s->%s", callerPkgID, calleePkgID)
+	return hashByMD5(fmt.Sprintf("%s->%s", callerPkgID, calleePkgID))
 }
 
 func getCompDepID(parentPkgID string, childPkgID string) string {
-	return fmt.Sprintf("%s<>-%s", parentPkgID, childPkgID)
+	return hashByMD5(fmt.Sprintf("%s<>-%s", parentPkgID, childPkgID))
 }
 
-func getDepAtFuncLevel(callerFuncName string, calleeFuncName string) string {
-	return fmt.Sprintf("%s->%s", callerFuncName, calleeFuncName)
+func getDepAtFuncID(callerFuncName string, calleeFuncName string) string {
+	return hashByMD5(fmt.Sprintf("%s->%s", callerFuncName, calleeFuncName))
+}
+
+func hashByMD5(text string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(text))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func isExternal(pkgPath string) bool {
