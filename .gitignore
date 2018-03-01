@@ -80,5 +80,9 @@ fabric.properties
 
 # End of https://www.gitignore.io/api/go,jetbrains+all
 
+# temporary file
 output.csv
+
+# vscode stuff
 .vscode
+debug
