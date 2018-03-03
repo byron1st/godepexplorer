@@ -17,14 +17,24 @@ type PackageMeta struct {
 	PackagePath     string          `json:"packagePath"`
 	PackageName     string          `json:"packageName"`
 	PackageDir      string          `json:"packageDir"`
-	IsPkg           bool            `json:"isPkg"`
-	IsExternal      bool            `json:"isExternal"`
-	IsStd           bool            `json:"isStd"`
+	PkgType         PkgType         `json:"pkgType"`
 	SinkEdgeIDSet   map[string]bool `json:"sinkEdgeIDSet"`
 	SourceEdgeIDSet map[string]bool `json:"sourceEdgeIDSet"`
 	Parent          string          `json:"parent"`
 	Children        map[string]bool `json:"children"`
 }
+
+// PkgType is an enum for package type
+type PkgType string
+
+// NOR is a PkgType to denote the normal package.
+// EXT is a PkgType to denote the external package.
+// STD is a PkgType to denote the standard package.
+const (
+	NOR PkgType = "nor"
+	EXT PkgType = "ext"
+	STD PkgType = "std"
+)
 
 // Dep is a struct to contain dependency relationship info
 type Dep struct {

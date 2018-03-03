@@ -175,6 +175,15 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 		return pkgObj, funcName
 	}
 
+	var pkgType PkgType
+	if isExternal {
+		pkgType = EXT
+	} else if isStd {
+		pkgType = STD
+	} else {
+		pkgType = NOR
+	}
+
 	newPackage := &Package{
 		ID:    getPkgID(pkgPath),
 		Label: pkg.Name(),
@@ -182,9 +191,7 @@ func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName strin
 			PackagePath:     pkgPath,
 			PackageName:     pkg.Name(),
 			PackageDir:      pkgDir,
-			IsExternal:      isExternal,
-			IsStd:           isStd,
-			IsPkg:           true,
+			PkgType:         pkgType,
 			SourceEdgeIDSet: make(map[string]bool),
 			SinkEdgeIDSet:   make(map[string]bool),
 			Parent:          "",
