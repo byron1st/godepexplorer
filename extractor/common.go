@@ -14,9 +14,9 @@ type Package struct {
 
 // PackageMeta is a meta info for a package object
 type PackageMeta struct {
-	PackagePath     string          `json:"packagePath"`
-	PackageName     string          `json:"packageName"`
-	PackageDir      string          `json:"packageDir"`
+	PackagePath     string          `json:"pkgPath"`
+	PackageName     string          `json:"pkgName"`
+	PackageDir      string          `json:"pkgDir"`
 	PkgType         PkgType         `json:"pkgType"`
 	SinkEdgeIDSet   map[string]bool `json:"sinkEdgeIDSet"`
 	SourceEdgeIDSet map[string]bool `json:"sourceEdgeIDSet"`
