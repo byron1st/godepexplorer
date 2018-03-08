@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"go/types"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/tools/go/callgraph"
@@ -21,15 +23,20 @@ import (
 
 // GetDeps extracts a list of packages and dependency relationships from a root package.
 func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
+	// allMains := traverseSubDir(path.Join(gopath, pkgName))
+	// for _, main := range allMains {
+	// 	fmt.Println(main)
+	// }
+
 	program, err := buildProgram(pkgName)
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// packageSet, depSet := inspectPackageWithCHA(program, pkgName)
+	packageSet, depSet := inspectPackageWithCHA(program, pkgName)
 	// packageSet, depSet := inspectPackageWithRTA(program, pkgName)
-	packageSet, depSet := inspectPackageWithStatic(program, pkgName)
+	// packageSet, depSet := inspectPackageWithStatic(program, pkgName)
 	// packageSet, depSet := inspectPackageWithPointer(program, pkgName)
 
 	if packageSet == nil || depSet == nil {
@@ -257,6 +264,7 @@ func getPkgMetaRelatedToPath(pkg *types.Package, pkgName string) (string, string
 	isStd := isStd(pkgPath)
 
 	if isExternal && len(pkgPath) > len(pkgName) {
+		// TODO: /Godeps/_workspace/ 도 /vendor/ 와 동일하게 처리해주어야 함.
 		pkgPath = pkgPath[strings.LastIndex(pkgPath, "/vendor/")+8:]
 	} else if isStd {
 		pkgDir = pkgPath
@@ -293,10 +301,68 @@ func hashByMD5(text string) string {
 }
 
 func isExternal(pkgPath string) bool {
-	return strings.Contains(pkgPath, "vendor")
+	// TODO: /Godeps/_workspace/ 도 /vendor/ 와 동일하게 처리해주어야 함.
+	// TODO: gx/ipfs를 ext로 처리하기 위해선, path 자체에서 처리해주는 로직을 추가해야 함.
+	return strings.Contains(pkgPath, "vendor") || strings.Contains(pkgPath, "gx/ipfs")
 }
 
 func isStd(pkgPath string) bool {
 	firstPath := strings.Split(pkgPath, "/")[0]
 	return stdlib[firstPath]
+}
+
+func traverseSubDir(rootDir string) []string {
+	max := 0
+	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			if !strings.Contains(path, ".git") && !strings.Contains(path, "/vendor/") && !strings.Contains(path, "/Godeps/_workspace/") {
+				max++
+			}
+		}
+		return nil
+	})
+
+	count := 0
+	allMains := make([]string, 0)
+	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			if !strings.Contains(path, ".git") && !strings.Contains(path, "/vendor") && !strings.Contains(path, "/Godeps/_workspace") {
+				// _, file := filepath.Split(path)
+				pkgName := strings.Join(strings.Split(path, "/")[6:], "/")
+				// fmt.Printf("%s, %s\n", pkgName, file)
+
+				program, error := buildProgram(pkgName)
+				if error != nil {
+					return nil
+				}
+				count++
+				fmt.Printf("(%d/%d) %s done.\n", count, max, pkgName)
+
+				for _, main := range getAllMains(program) {
+					allMains = append(allMains, main)
+				}
+			}
+		}
+		return nil
+	})
+
+	return allMains
+}
+
+func getAllMains(program *ssa.Program) []string {
+	pkgs := program.AllPackages()
+
+	var mains []*ssa.Package
+	mains = append(mains, ssautil.MainPackages(pkgs)...)
+
+	if len(mains) == 0 {
+		return nil
+	}
+
+	var mainPaths []string
+	for _, main := range mains {
+		mainPaths = append(mainPaths, main.Pkg.Path())
+	}
+
+	return mainPaths
 }
