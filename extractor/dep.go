@@ -301,12 +301,15 @@ func hashByMD5(text string) string {
 }
 
 func isExternal(pkgPath string) bool {
-	// TODO: /Godeps/_workspace/ 도 /vendor/ 와 동일하게 처리해주어야 함.
 	// TODO: gx/ipfs를 ext로 처리하기 위해선, path 자체에서 처리해주는 로직을 추가해야 함.
-	return strings.Contains(pkgPath, "vendor") || strings.Contains(pkgPath, "gx/ipfs")
+	return strings.Contains(pkgPath, "vendor") || strings.Contains(pkgPath, "Godeps/_workspace") || strings.Contains(pkgPath, "gx/ipfs")
 }
 
 func isStd(pkgPath string) bool {
+	if strings.Contains(pkgPath, "golang.org") {
+		return true
+	}
+
 	firstPath := strings.Split(pkgPath, "/")[0]
 	return stdlib[firstPath]
 }
