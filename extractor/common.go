@@ -75,3 +75,4 @@ var stdlib = map[string]bool{
 	"plugin": true, "reflect": true, "regexp": true, "runtime": true, "sort": true, "strconv": true, "strings": true, "sync": true,
 	"syscall": true, "testing": true, "text": true, "time": true, "unicode": true, "unsafe": true, "internal": true,
 }
+var checkListForExt = []string{"vendor/", "Godeps/_workspace"}

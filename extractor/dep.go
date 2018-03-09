@@ -175,7 +175,7 @@ func addPkg(pkgSet map[string]*Pkg, node *callgraph.Node, rootPkgPath string) {
 				PkgPath:         pkgPath,
 				PkgName:         getPkgName(node),
 				PkgDir:          getPkgDirFromPath(pkgPath),
-				PkgType:         getPkgTypeFromPath(pkgPath),
+				PkgType:         getPkgTypeFromPath(pkgPath, rootPkgPath),
 				SourceEdgeIDSet: make(map[string]bool),
 				SinkEdgeIDSet:   make(map[string]bool),
 				Parent:          "",
@@ -246,7 +246,7 @@ func getPkgName(node *callgraph.Node) string {
 
 func getPkgPath(node *callgraph.Node, rootPkgPath string) string {
 	pkgPath := node.Func.Pkg.Pkg.Path()
-	if isExt(pkgPath) && len(pkgPath) > len(rootPkgPath) {
+	if isExt(pkgPath, rootPkgPath) && len(pkgPath) > len(rootPkgPath) {
 		// TODO: /Godeps/_workspace/ 도 /vendor/ 와 동일하게 처리해주어야 함.
 		return pkgPath[strings.LastIndex(pkgPath, "/vendor/")+8:]
 	}
@@ -263,8 +263,8 @@ func getPkgDirFromPath(pkgPath string) string {
 	return pkgDir
 }
 
-func getPkgTypeFromPath(pkgPath string) PkgType {
-	if isExt(pkgPath) {
+func getPkgTypeFromPath(pkgPath string, rootPkgPath string) PkgType {
+	if isExt(pkgPath, rootPkgPath) {
 		return EXT
 	} else if isStd(pkgPath) {
 		return STD
@@ -308,9 +308,23 @@ func hashByMD5(text string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func isExt(pkgPath string) bool {
+func isExt(pkgPath string, rootPkgPath string) bool {
 	// TODO: gx/ipfs를 ext로 처리하기 위해선, path 자체에서 처리해주는 로직을 추가해야 함.
-	return strings.Contains(pkgPath, "vendor") || strings.Contains(pkgPath, "Godeps/_workspace") || strings.Contains(pkgPath, "gx/ipfs")
+	if strings.HasPrefix(pkgPath, rootPkgPath) {
+		return false
+	}
+
+	return checkListForPkgPath(pkgPath, checkListForExt)
+}
+
+func checkListForPkgPath(pkgPath string, checkList []string) bool {
+	for _, item := range checkList {
+		if strings.Contains(pkgPath, item) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func isStd(pkgPath string) bool {
