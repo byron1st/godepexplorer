@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"go/types"
 	"os"
 	"path"
 	"path/filepath"
@@ -34,27 +33,27 @@ func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
 		return nil, nil, err
 	}
 
-	packageSet, depSet := inspectPackageWithCHA(program, pkgName)
-	// packageSet, depSet := inspectPackageWithRTA(program, pkgName)
-	// packageSet, depSet := inspectPackageWithStatic(program, pkgName)
-	// packageSet, depSet := inspectPackageWithPointer(program, pkgName)
+	pkgSet, depSet := inspectPackageWithCHA(program, pkgName)
+	// pkgSet, depSet := inspectPackageWithRTA(program, pkgName)
+	// pkgSet, depSet := inspectPackageWithStatic(program, pkgName)
+	// pkgSet, depSet := inspectPackageWithPointer(program, pkgName)
 
-	if packageSet == nil || depSet == nil {
+	if pkgSet == nil || depSet == nil {
 		return nil, nil, errors.New("there is no main package")
 	}
 
-	packageList := make([]*Package, 0)
+	pkgList := make([]*Package, 0)
 	depList := make([]*Dep, 0)
 
-	for _, pkg := range packageSet {
-		packageList = append(packageList, pkg)
+	for _, pkg := range pkgSet {
+		pkgList = append(pkgList, pkg)
 	}
 
 	for _, dep := range depSet {
 		depList = append(depList, dep)
 	}
 
-	return packageList, depList, nil
+	return pkgList, depList, nil
 }
 
 func buildProgram(pkgName string) (*ssa.Program, error) {
@@ -125,31 +124,27 @@ func inspectPackageWithPointer(program *ssa.Program, pkgName string) (map[string
 }
 
 func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package, map[string]*Dep) {
-	packageSet := make(map[string]*Package)
+	pkgSet := make(map[string]*Package)
 	depSet := make(map[string]*Dep)
 
-	callgraph.GraphVisitEdges(cg, func(e *callgraph.Edge) error {
-		if isSynthetic(e) {
+	callgraph.GraphVisitEdges(cg, func(edge *callgraph.Edge) error {
+		if isSynthetic(edge) {
 			return nil
 		}
 
 		// Remove an edge if packages of its caller and callee are same
-		if e.Caller.Func.Pkg.Pkg.Path() == e.Callee.Func.Pkg.Pkg.Path() {
+		if getPkgPath(edge.Caller, pkgName) == getPkgPath(edge.Callee, pkgName) {
 			return nil
 		}
 
-		callerPkg, callerFuncName := addPackage(packageSet, e.Caller, pkgName)
-		calleePkg, calleeFuncName := addPackage(packageSet, e.Callee, pkgName)
-
-		depID := addDep(depSet, callerPkg.ID, callerFuncName, calleePkg.ID, calleeFuncName)
-
-		addDepToPackage(callerPkg, depID, true)
-		addDepToPackage(calleePkg, depID, false)
+		addPkg(pkgSet, edge.Caller, pkgName)
+		addPkg(pkgSet, edge.Callee, pkgName)
+		addDep(depSet, edge, pkgName, pkgSet)
 
 		return nil
 	})
 
-	return packageSet, depSet
+	return pkgSet, depSet
 }
 
 func constructTree(packageSet map[string]*Package, depSet map[string]*Dep) (map[string]*Package, map[string]*Dep) {
@@ -170,75 +165,63 @@ func constructTree(packageSet map[string]*Package, depSet map[string]*Dep) (map[
 	return packageSet, depSet
 }
 
-func addPackage(packageSet map[string]*Package, n *callgraph.Node, pkgName string) (*Package, string) {
-	pkg := n.Func.Pkg.Pkg
-	pkgPath, pkgDir, isExternal, isStd := getPkgMetaRelatedToPath(pkg, pkgName)
+func addPkg(pkgSet map[string]*Package, node *callgraph.Node, pkgName string) {
+	pkgPath := getPkgPath(node, pkgName)
+	if pkgObj := pkgSet[getPkgIDFromPath(pkgPath)]; pkgObj == nil {
+		newPkg := &Package{
+			ID:    getPkgIDFromPath(pkgPath),
+			Label: getPkgName(node),
+			Meta: &PackageMeta{
+				PackagePath:     pkgPath,
+				PackageName:     getPkgName(node),
+				PackageDir:      getPkgDirFromPath(pkgPath),
+				PkgType:         getPkgTypeFromPath(pkgPath),
+				SourceEdgeIDSet: make(map[string]bool),
+				SinkEdgeIDSet:   make(map[string]bool),
+				Parent:          "",
+				Children:        make(map[string]bool),
+			},
+		}
 
-	funcName := getFuncName(n.Func.Name(), n.Func.Signature.String())
-
-	pkgObj := packageSet[pkgPath]
-
-	if pkgObj != nil {
-		return pkgObj, funcName
-	}
-
-	var pkgType PkgType
-	if isExternal {
-		pkgType = EXT
-	} else if isStd {
-		pkgType = STD
-	} else {
-		pkgType = NOR
-	}
-
-	newPackage := &Package{
-		ID:    getPkgID(pkgPath),
-		Label: pkg.Name(),
-		Meta: &PackageMeta{
-			PackagePath:     pkgPath,
-			PackageName:     pkg.Name(),
-			PackageDir:      pkgDir,
-			PkgType:         pkgType,
-			SourceEdgeIDSet: make(map[string]bool),
-			SinkEdgeIDSet:   make(map[string]bool),
-			Parent:          "",
-			Children:        make(map[string]bool),
-		},
-	}
-	packageSet[newPackage.ID] = newPackage
-
-	return newPackage, funcName
-}
-
-func addDepToPackage(pkg *Package, depID string, isSource bool) {
-	if isSource {
-		pkg.Meta.SourceEdgeIDSet[depID] = true
-	} else {
-		pkg.Meta.SinkEdgeIDSet[depID] = true
+		pkgSet[newPkg.ID] = newPkg
 	}
 }
 
-func addDep(depSet map[string]*Dep, callerPkgID string, callerFuncName string, calleePkgID string, calleeFuncName string) string {
-	id := getDepID(callerPkgID, calleePkgID)
-	depObj := depSet[id]
-	depAtFuncID := getDepAtFuncID(callerFuncName, calleeFuncName)
+func addDep(depSet map[string]*Dep, edge *callgraph.Edge, pkgName string, pkgSet map[string]*Package) {
+	depID := getDepID(edge, pkgName)
+	depAtFunc := getDepAtFunc(edge, pkgName)
 
-	if depObj != nil {
-		depObj.Meta.DepAtFuncSet[depAtFuncID] = &DepAtFunc{depAtFuncID, callerFuncName, calleeFuncName}
-	} else {
+	if depObj := depSet[depID]; depObj == nil {
 		newDep := &Dep{
-			ID:   id,
-			From: callerPkgID,
-			To:   calleePkgID,
+			ID:   depID,
+			From: getPkgIDFromPath(getPkgPath(edge.Caller, pkgName)),
+			To:   getPkgIDFromPath(getPkgPath(edge.Callee, pkgName)),
 			Meta: &DepMeta{
-				DepAtFuncSet: map[string]*DepAtFunc{depAtFuncID: {depAtFuncID, callerFuncName, calleeFuncName}},
+				DepAtFuncSet: map[string]*DepAtFunc{depAtFunc.ID: depAtFunc},
 				Type:         REL,
 			},
 		}
-		depSet[id] = newDep
+
+		depSet[depID] = newDep
+	} else {
+		depObj.Meta.DepAtFuncSet[depAtFunc.ID] = depAtFunc
 	}
 
-	return id
+	if callerPkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Caller, pkgName))]; callerPkg != nil {
+		callerPkg.Meta.SourceEdgeIDSet[depID] = true
+	}
+
+	if calleePkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Callee, pkgName))]; calleePkg != nil {
+		calleePkg.Meta.SinkEdgeIDSet[depID] = true
+	}
+}
+
+func getDepAtFunc(edge *callgraph.Edge, pkgName string) *DepAtFunc {
+	return &DepAtFunc{
+		ID:   getDepAtFuncID(edge, pkgName),
+		From: getFunc(edge.Caller),
+		To:   getFunc(edge.Callee),
+	}
 }
 
 func getCompDep(parentPkgID string, childPkgID string) *Dep {
@@ -257,32 +240,54 @@ func isSynthetic(edge *callgraph.Edge) bool {
 	return edge.Caller.Func.Pkg == nil || edge.Callee.Func.Synthetic != ""
 }
 
-func getPkgMetaRelatedToPath(pkg *types.Package, pkgName string) (string, string, bool, bool) {
-	pkgPath := pkg.Path()
-	pkgDir := path.Join(gopath, pkgPath)
-	isExternal := isExternal(pkgPath)
-	isStd := isStd(pkgPath)
+func getPkgName(node *callgraph.Node) string {
+	return node.Func.Pkg.Pkg.Name()
+}
 
-	if isExternal && len(pkgPath) > len(pkgName) {
+func getPkgPath(node *callgraph.Node, pkgName string) string {
+	pkgPath := node.Func.Pkg.Pkg.Path()
+	if isExt(pkgPath) && len(pkgPath) > len(pkgName) {
 		// TODO: /Godeps/_workspace/ 도 /vendor/ 와 동일하게 처리해주어야 함.
-		pkgPath = pkgPath[strings.LastIndex(pkgPath, "/vendor/")+8:]
-	} else if isStd {
-		pkgDir = pkgPath
+		return pkgPath[strings.LastIndex(pkgPath, "/vendor/")+8:]
+	}
+	return pkgPath
+}
+
+func getPkgDirFromPath(pkgPath string) string {
+	pkgDir := path.Join(gopath, pkgPath)
+
+	if isStd(pkgPath) {
+		return pkgPath
 	}
 
-	return pkgPath, pkgDir, isExternal, isStd
+	return pkgDir
 }
 
-func getFuncName(functionName string, functionSig string) string {
-	funcSig := functionSig[4:]
-	return functionName + funcSig
+func getPkgTypeFromPath(pkgPath string) PkgType {
+	if isExt(pkgPath) {
+		return EXT
+	} else if isStd(pkgPath) {
+		return STD
+	} else {
+		return NOR
+	}
 }
 
-func getPkgID(pkgPath string) string {
+func getFunc(node *callgraph.Node) string {
+	funcName := node.Func.Name()
+	funcSig := node.Func.Signature.String()[4:]
+
+	return fmt.Sprint(funcName, funcSig)
+}
+
+func getPkgIDFromPath(pkgPath string) string {
 	return hashByMD5(pkgPath)
 }
 
-func getDepID(callerPkgID string, calleePkgID string) string {
+func getDepID(edge *callgraph.Edge, pkgName string) string {
+	callerPkgID := getPkgIDFromPath(getPkgPath(edge.Caller, pkgName))
+	calleePkgID := getPkgIDFromPath(getPkgPath(edge.Callee, pkgName))
+
 	return hashByMD5(fmt.Sprintf("%s->%s", callerPkgID, calleePkgID))
 }
 
@@ -290,7 +295,10 @@ func getCompDepID(parentPkgID string, childPkgID string) string {
 	return hashByMD5(fmt.Sprintf("%s<>-%s", parentPkgID, childPkgID))
 }
 
-func getDepAtFuncID(callerFuncName string, calleeFuncName string) string {
+func getDepAtFuncID(edge *callgraph.Edge, pkgName string) string {
+	callerFuncName := getFunc(edge.Caller)
+	calleeFuncName := getFunc(edge.Callee)
+
 	return hashByMD5(fmt.Sprintf("%s->%s", callerFuncName, calleeFuncName))
 }
 
@@ -300,7 +308,7 @@ func hashByMD5(text string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func isExternal(pkgPath string) bool {
+func isExt(pkgPath string) bool {
 	// TODO: gx/ipfs를 ext로 처리하기 위해선, path 자체에서 처리해주는 로직을 추가해야 함.
 	return strings.Contains(pkgPath, "vendor") || strings.Contains(pkgPath, "Godeps/_workspace") || strings.Contains(pkgPath, "gx/ipfs")
 }
