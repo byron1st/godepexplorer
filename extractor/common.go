@@ -5,18 +5,18 @@ import (
 	"path"
 )
 
-// Package info
-type Package struct {
-	ID    string       `json:"id"`
-	Label string       `json:"label"`
-	Meta  *PackageMeta `json:"meta"`
+// Pkg info
+type Pkg struct {
+	ID    string   `json:"id"`
+	Label string   `json:"label"`
+	Meta  *PkgMeta `json:"meta"`
 }
 
-// PackageMeta is a meta info for a package object
-type PackageMeta struct {
-	PackagePath     string          `json:"pkgPath"`
-	PackageName     string          `json:"pkgName"`
-	PackageDir      string          `json:"pkgDir"`
+// PkgMeta is a meta info for a package object
+type PkgMeta struct {
+	PkgPath         string          `json:"pkgPath"`
+	PkgName         string          `json:"pkgName"`
+	PkgDir          string          `json:"pkgDir"`
 	PkgType         PkgType         `json:"pkgType"`
 	SinkEdgeIDSet   map[string]bool `json:"sinkEdgeIDSet"`
 	SourceEdgeIDSet map[string]bool `json:"sourceEdgeIDSet"`

@@ -28,8 +28,8 @@ type IResponse struct {
 
 // IListGraph is a type for the response
 type IListGraph struct {
-	Nodes []*extractor.Package `json:"nodes"`
-	Edges []*extractor.Dep     `json:"edges"`
+	Nodes []*extractor.Pkg `json:"nodes"`
+	Edges []*extractor.Dep `json:"edges"`
 }
 
 // MakeServer creates and returns a new Server object.

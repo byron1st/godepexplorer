@@ -21,7 +21,7 @@ import (
 )
 
 // GetDeps extracts a list of packages and dependency relationships from a root package.
-func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
+func GetDeps(pkgName string) ([]*Pkg, []*Dep, error) {
 	// allMains := traverseSubDir(path.Join(gopath, pkgName))
 	// for _, main := range allMains {
 	// 	fmt.Println(main)
@@ -42,7 +42,7 @@ func GetDeps(pkgName string) ([]*Package, []*Dep, error) {
 		return nil, nil, errors.New("there is no main package")
 	}
 
-	pkgList := make([]*Package, 0)
+	pkgList := make([]*Pkg, 0)
 	depList := make([]*Dep, 0)
 
 	for _, pkg := range pkgSet {
@@ -74,19 +74,19 @@ func buildProgram(pkgName string) (*ssa.Program, error) {
 	return program, err
 }
 
-func inspectPackageWithStatic(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
+func inspectPackageWithStatic(program *ssa.Program, pkgName string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze only static calls")
 	packageSet, depSet := traverseCallgraph(static.CallGraph(program), pkgName)
 
 	return constructTree(packageSet, depSet)
 }
 
-func inspectPackageWithCHA(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
+func inspectPackageWithCHA(program *ssa.Program, pkgName string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze using the Class Hierarchy Analysis(CHA) algorithm")
 	return traverseCallgraph(cha.CallGraph(program), pkgName)
 }
 
-func inspectPackageWithRTA(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
+func inspectPackageWithRTA(program *ssa.Program, pkgName string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze using the Rapid Type Analysis(RTA) algorithm")
 	pkgs := program.AllPackages()
 
@@ -102,7 +102,7 @@ func inspectPackageWithRTA(program *ssa.Program, pkgName string) (map[string]*Pa
 	return traverseCallgraph(cg, pkgName)
 }
 
-func inspectPackageWithPointer(program *ssa.Program, pkgName string) (map[string]*Package, map[string]*Dep) {
+func inspectPackageWithPointer(program *ssa.Program, pkgName string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze using the inclusion-based Points-To Analysis algorithm")
 	pkgs := program.AllPackages()
 
@@ -123,8 +123,8 @@ func inspectPackageWithPointer(program *ssa.Program, pkgName string) (map[string
 	return traverseCallgraph(analysis.CallGraph, pkgName)
 }
 
-func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package, map[string]*Dep) {
-	pkgSet := make(map[string]*Package)
+func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Pkg, map[string]*Dep) {
+	pkgSet := make(map[string]*Pkg)
 	depSet := make(map[string]*Dep)
 
 	callgraph.GraphVisitEdges(cg, func(edge *callgraph.Edge) error {
@@ -147,7 +147,7 @@ func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Package
 	return pkgSet, depSet
 }
 
-func constructTree(packageSet map[string]*Package, depSet map[string]*Dep) (map[string]*Package, map[string]*Dep) {
+func constructTree(packageSet map[string]*Pkg, depSet map[string]*Dep) (map[string]*Pkg, map[string]*Dep) {
 	for pkgID, pkg := range packageSet {
 		pkgStringTokens := strings.Split(pkg.ID, "/")
 		if len(pkgStringTokens) != 1 {
@@ -165,16 +165,16 @@ func constructTree(packageSet map[string]*Package, depSet map[string]*Dep) (map[
 	return packageSet, depSet
 }
 
-func addPkg(pkgSet map[string]*Package, node *callgraph.Node, pkgName string) {
+func addPkg(pkgSet map[string]*Pkg, node *callgraph.Node, pkgName string) {
 	pkgPath := getPkgPath(node, pkgName)
 	if pkgObj := pkgSet[getPkgIDFromPath(pkgPath)]; pkgObj == nil {
-		newPkg := &Package{
+		newPkg := &Pkg{
 			ID:    getPkgIDFromPath(pkgPath),
 			Label: getPkgName(node),
-			Meta: &PackageMeta{
-				PackagePath:     pkgPath,
-				PackageName:     getPkgName(node),
-				PackageDir:      getPkgDirFromPath(pkgPath),
+			Meta: &PkgMeta{
+				PkgPath:         pkgPath,
+				PkgName:         getPkgName(node),
+				PkgDir:          getPkgDirFromPath(pkgPath),
 				PkgType:         getPkgTypeFromPath(pkgPath),
 				SourceEdgeIDSet: make(map[string]bool),
 				SinkEdgeIDSet:   make(map[string]bool),
@@ -187,7 +187,7 @@ func addPkg(pkgSet map[string]*Package, node *callgraph.Node, pkgName string) {
 	}
 }
 
-func addDep(depSet map[string]*Dep, edge *callgraph.Edge, pkgName string, pkgSet map[string]*Package) {
+func addDep(depSet map[string]*Dep, edge *callgraph.Edge, pkgName string, pkgSet map[string]*Pkg) {
 	depID := getDepID(edge, pkgName)
 	depAtFunc := getDepAtFunc(edge, pkgName)
 
