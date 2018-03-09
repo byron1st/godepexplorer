@@ -21,22 +21,22 @@ import (
 )
 
 // GetDeps extracts a list of packages and dependency relationships from a root package.
-func GetDeps(pkgName string) ([]*Pkg, []*Dep, error) {
-	// allMains := traverseSubDir(path.Join(gopath, pkgName))
+func GetDeps(rootPkgPath string) ([]*Pkg, []*Dep, error) {
+	// allMains := traverseSubDir(path.Join(gopath, rootPkgPath))
 	// for _, main := range allMains {
 	// 	fmt.Println(main)
 	// }
 
-	program, err := buildProgram(pkgName)
+	program, err := buildProgram(rootPkgPath)
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	pkgSet, depSet := inspectPackageWithCHA(program, pkgName)
-	// pkgSet, depSet := inspectPackageWithRTA(program, pkgName)
-	// pkgSet, depSet := inspectPackageWithStatic(program, pkgName)
-	// pkgSet, depSet := inspectPackageWithPointer(program, pkgName)
+	pkgSet, depSet := inspectPackageWithCHA(program, rootPkgPath)
+	// pkgSet, depSet := inspectPackageWithRTA(program, rootPkgPath)
+	// pkgSet, depSet := inspectPackageWithStatic(program, rootPkgPath)
+	// pkgSet, depSet := inspectPackageWithPointer(program, rootPkgPath)
 
 	if pkgSet == nil || depSet == nil {
 		return nil, nil, errors.New("there is no main package")
@@ -56,8 +56,8 @@ func GetDeps(pkgName string) ([]*Pkg, []*Dep, error) {
 	return pkgList, depList, nil
 }
 
-func buildProgram(pkgName string) (*ssa.Program, error) {
-	pkgPaths := []string{pkgName}
+func buildProgram(rootPkgPath string) (*ssa.Program, error) {
+	pkgPaths := []string{rootPkgPath}
 	conf := loader.Config{}
 	_, err := conf.FromArgs(pkgPaths, false)
 	if err != nil {
@@ -74,19 +74,19 @@ func buildProgram(pkgName string) (*ssa.Program, error) {
 	return program, err
 }
 
-func inspectPackageWithStatic(program *ssa.Program, pkgName string) (map[string]*Pkg, map[string]*Dep) {
+func inspectPackageWithStatic(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze only static calls")
-	packageSet, depSet := traverseCallgraph(static.CallGraph(program), pkgName)
+	packageSet, depSet := traverseCallgraph(static.CallGraph(program), rootPkgPath)
 
 	return constructTree(packageSet, depSet)
 }
 
-func inspectPackageWithCHA(program *ssa.Program, pkgName string) (map[string]*Pkg, map[string]*Dep) {
+func inspectPackageWithCHA(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze using the Class Hierarchy Analysis(CHA) algorithm")
-	return traverseCallgraph(cha.CallGraph(program), pkgName)
+	return traverseCallgraph(cha.CallGraph(program), rootPkgPath)
 }
 
-func inspectPackageWithRTA(program *ssa.Program, pkgName string) (map[string]*Pkg, map[string]*Dep) {
+func inspectPackageWithRTA(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze using the Rapid Type Analysis(RTA) algorithm")
 	pkgs := program.AllPackages()
 
@@ -99,10 +99,10 @@ func inspectPackageWithRTA(program *ssa.Program, pkgName string) (map[string]*Pk
 	}
 	cg := rta.Analyze(roots, true).CallGraph
 
-	return traverseCallgraph(cg, pkgName)
+	return traverseCallgraph(cg, rootPkgPath)
 }
 
-func inspectPackageWithPointer(program *ssa.Program, pkgName string) (map[string]*Pkg, map[string]*Dep) {
+func inspectPackageWithPointer(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze using the inclusion-based Points-To Analysis algorithm")
 	pkgs := program.AllPackages()
 
@@ -120,10 +120,10 @@ func inspectPackageWithPointer(program *ssa.Program, pkgName string) (map[string
 
 	analysis, _ := pointer.Analyze(config)
 
-	return traverseCallgraph(analysis.CallGraph, pkgName)
+	return traverseCallgraph(analysis.CallGraph, rootPkgPath)
 }
 
-func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Pkg, map[string]*Dep) {
+func traverseCallgraph(cg *callgraph.Graph, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	pkgSet := make(map[string]*Pkg)
 	depSet := make(map[string]*Dep)
 
@@ -133,13 +133,13 @@ func traverseCallgraph(cg *callgraph.Graph, pkgName string) (map[string]*Pkg, ma
 		}
 
 		// Remove an edge if packages of its caller and callee are same
-		if getPkgPath(edge.Caller, pkgName) == getPkgPath(edge.Callee, pkgName) {
+		if getPkgPath(edge.Caller, rootPkgPath) == getPkgPath(edge.Callee, rootPkgPath) {
 			return nil
 		}
 
-		addPkg(pkgSet, edge.Caller, pkgName)
-		addPkg(pkgSet, edge.Callee, pkgName)
-		addDep(depSet, edge, pkgName, pkgSet)
+		addPkg(pkgSet, edge.Caller, rootPkgPath)
+		addPkg(pkgSet, edge.Callee, rootPkgPath)
+		addDep(depSet, edge, rootPkgPath, pkgSet)
 
 		return nil
 	})
@@ -165,8 +165,8 @@ func constructTree(packageSet map[string]*Pkg, depSet map[string]*Dep) (map[stri
 	return packageSet, depSet
 }
 
-func addPkg(pkgSet map[string]*Pkg, node *callgraph.Node, pkgName string) {
-	pkgPath := getPkgPath(node, pkgName)
+func addPkg(pkgSet map[string]*Pkg, node *callgraph.Node, rootPkgPath string) {
+	pkgPath := getPkgPath(node, rootPkgPath)
 	if pkgObj := pkgSet[getPkgIDFromPath(pkgPath)]; pkgObj == nil {
 		newPkg := &Pkg{
 			ID:    getPkgIDFromPath(pkgPath),
@@ -187,15 +187,15 @@ func addPkg(pkgSet map[string]*Pkg, node *callgraph.Node, pkgName string) {
 	}
 }
 
-func addDep(depSet map[string]*Dep, edge *callgraph.Edge, pkgName string, pkgSet map[string]*Pkg) {
-	depID := getDepID(edge, pkgName)
-	depAtFunc := getDepAtFunc(edge, pkgName)
+func addDep(depSet map[string]*Dep, edge *callgraph.Edge, rootPkgPath string, pkgSet map[string]*Pkg) {
+	depID := getDepID(edge, rootPkgPath)
+	depAtFunc := getDepAtFunc(edge, rootPkgPath)
 
 	if depObj := depSet[depID]; depObj == nil {
 		newDep := &Dep{
 			ID:   depID,
-			From: getPkgIDFromPath(getPkgPath(edge.Caller, pkgName)),
-			To:   getPkgIDFromPath(getPkgPath(edge.Callee, pkgName)),
+			From: getPkgIDFromPath(getPkgPath(edge.Caller, rootPkgPath)),
+			To:   getPkgIDFromPath(getPkgPath(edge.Callee, rootPkgPath)),
 			Meta: &DepMeta{
 				DepAtFuncSet: map[string]*DepAtFunc{depAtFunc.ID: depAtFunc},
 				Type:         REL,
@@ -207,18 +207,18 @@ func addDep(depSet map[string]*Dep, edge *callgraph.Edge, pkgName string, pkgSet
 		depObj.Meta.DepAtFuncSet[depAtFunc.ID] = depAtFunc
 	}
 
-	if callerPkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Caller, pkgName))]; callerPkg != nil {
+	if callerPkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Caller, rootPkgPath))]; callerPkg != nil {
 		callerPkg.Meta.SourceEdgeIDSet[depID] = true
 	}
 
-	if calleePkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Callee, pkgName))]; calleePkg != nil {
+	if calleePkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Callee, rootPkgPath))]; calleePkg != nil {
 		calleePkg.Meta.SinkEdgeIDSet[depID] = true
 	}
 }
 
-func getDepAtFunc(edge *callgraph.Edge, pkgName string) *DepAtFunc {
+func getDepAtFunc(edge *callgraph.Edge, rootPkgPath string) *DepAtFunc {
 	return &DepAtFunc{
-		ID:   getDepAtFuncID(edge, pkgName),
+		ID:   getDepAtFuncID(edge),
 		From: getFunc(edge.Caller),
 		To:   getFunc(edge.Callee),
 	}
@@ -244,9 +244,9 @@ func getPkgName(node *callgraph.Node) string {
 	return node.Func.Pkg.Pkg.Name()
 }
 
-func getPkgPath(node *callgraph.Node, pkgName string) string {
+func getPkgPath(node *callgraph.Node, rootPkgPath string) string {
 	pkgPath := node.Func.Pkg.Pkg.Path()
-	if isExt(pkgPath) && len(pkgPath) > len(pkgName) {
+	if isExt(pkgPath) && len(pkgPath) > len(rootPkgPath) {
 		// TODO: /Godeps/_workspace/ 도 /vendor/ 와 동일하게 처리해주어야 함.
 		return pkgPath[strings.LastIndex(pkgPath, "/vendor/")+8:]
 	}
@@ -284,9 +284,9 @@ func getPkgIDFromPath(pkgPath string) string {
 	return hashByMD5(pkgPath)
 }
 
-func getDepID(edge *callgraph.Edge, pkgName string) string {
-	callerPkgID := getPkgIDFromPath(getPkgPath(edge.Caller, pkgName))
-	calleePkgID := getPkgIDFromPath(getPkgPath(edge.Callee, pkgName))
+func getDepID(edge *callgraph.Edge, rootPkgPath string) string {
+	callerPkgID := getPkgIDFromPath(getPkgPath(edge.Caller, rootPkgPath))
+	calleePkgID := getPkgIDFromPath(getPkgPath(edge.Callee, rootPkgPath))
 
 	return hashByMD5(fmt.Sprintf("%s->%s", callerPkgID, calleePkgID))
 }
@@ -295,7 +295,7 @@ func getCompDepID(parentPkgID string, childPkgID string) string {
 	return hashByMD5(fmt.Sprintf("%s<>-%s", parentPkgID, childPkgID))
 }
 
-func getDepAtFuncID(edge *callgraph.Edge, pkgName string) string {
+func getDepAtFuncID(edge *callgraph.Edge) string {
 	callerFuncName := getFunc(edge.Caller)
 	calleeFuncName := getFunc(edge.Callee)
 
