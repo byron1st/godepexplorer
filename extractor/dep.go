@@ -247,8 +247,14 @@ func getPkgName(node *callgraph.Node) string {
 func getPkgPath(node *callgraph.Node, rootPkgPath string) string {
 	pkgPath := node.Func.Pkg.Pkg.Path()
 	if isExt(pkgPath, rootPkgPath) && len(pkgPath) > len(rootPkgPath) {
-		// TODO: /Godeps/_workspace/ 도 /vendor/ 와 동일하게 처리해주어야 함.
-		return pkgPath[strings.LastIndex(pkgPath, "/vendor/")+8:]
+		var extPkgPath string
+		if strings.Contains(pkgPath, "vendor/") {
+			extPkgPath = pkgPath[7:]
+		} else if strings.Contains(pkgPath, "Godeps/_workspace") {
+			extPkgPath = pkgPath[17:]
+		}
+		fmt.Println(extPkgPath)
+		return extPkgPath
 	}
 	return pkgPath
 }
@@ -309,7 +315,6 @@ func hashByMD5(text string) string {
 }
 
 func isExt(pkgPath string, rootPkgPath string) bool {
-	// TODO: gx/ipfs를 ext로 처리하기 위해선, path 자체에서 처리해주는 로직을 추가해야 함.
 	if strings.HasPrefix(pkgPath, rootPkgPath) {
 		return false
 	}
@@ -328,10 +333,6 @@ func checkListForPkgPath(pkgPath string, checkList []string) bool {
 }
 
 func isStd(pkgPath string) bool {
-	if strings.Contains(pkgPath, "golang.org") {
-		return true
-	}
-
 	firstPath := strings.Split(pkgPath, "/")[0]
 	return stdlib[firstPath]
 }
