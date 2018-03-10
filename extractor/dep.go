@@ -245,18 +245,7 @@ func getPkgName(node *callgraph.Node) string {
 }
 
 func getPkgPath(node *callgraph.Node, rootPkgPath string) string {
-	pkgPath := node.Func.Pkg.Pkg.Path()
-	if isExt(pkgPath, rootPkgPath) && len(pkgPath) > len(rootPkgPath) {
-		var extPkgPath string
-		if strings.Contains(pkgPath, "vendor/") {
-			extPkgPath = pkgPath[7:]
-		} else if strings.Contains(pkgPath, "Godeps/_workspace") {
-			extPkgPath = pkgPath[17:]
-		}
-		fmt.Println(extPkgPath)
-		return extPkgPath
-	}
-	return pkgPath
+	return node.Func.Pkg.Pkg.Path()
 }
 
 func getPkgDirFromPath(pkgPath string) string {
@@ -270,10 +259,10 @@ func getPkgDirFromPath(pkgPath string) string {
 }
 
 func getPkgTypeFromPath(pkgPath string, rootPkgPath string) PkgType {
-	if isExt(pkgPath, rootPkgPath) {
-		return EXT
-	} else if isStd(pkgPath) {
+	if isStd(pkgPath) {
 		return STD
+	} else if isExt(pkgPath, rootPkgPath) {
+		return EXT
 	} else {
 		return NOR
 	}
@@ -315,21 +304,7 @@ func hashByMD5(text string) string {
 }
 
 func isExt(pkgPath string, rootPkgPath string) bool {
-	if strings.HasPrefix(pkgPath, rootPkgPath) {
-		return false
-	}
-
-	return checkListForPkgPath(pkgPath, checkListForExt)
-}
-
-func checkListForPkgPath(pkgPath string, checkList []string) bool {
-	for _, item := range checkList {
-		if strings.Contains(pkgPath, item) {
-			return true
-		}
-	}
-
-	return false
+	return !strings.HasPrefix(pkgPath, rootPkgPath)
 }
 
 func isStd(pkgPath string) bool {
