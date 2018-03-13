@@ -268,11 +268,15 @@ func getPkgTypeFromPath(pkgPath string, rootPkgPath string) PkgType {
 	}
 }
 
-func getFunc(node *callgraph.Node) string {
+func getFunc(node *callgraph.Node) *Func {
 	funcName := node.Func.Name()
 	funcSig := node.Func.Signature.String()[4:]
+	fileName := node.Func.Prog.Fset.Position(node.Func.Pos()).Filename
 
-	return fmt.Sprint(funcName, funcSig)
+	return &Func{
+		Signature: fmt.Sprint(funcName, funcSig),
+		Filename:  fileName,
+	}
 }
 
 func getPkgIDFromPath(pkgPath string) string {
@@ -291,8 +295,8 @@ func getCompDepID(parentPkgID string, childPkgID string) string {
 }
 
 func getDepAtFuncID(edge *callgraph.Edge) string {
-	callerFuncName := getFunc(edge.Caller)
-	calleeFuncName := getFunc(edge.Callee)
+	callerFuncName := getFunc(edge.Caller).Signature
+	calleeFuncName := getFunc(edge.Callee).Signature
 
 	return hashByMD5(fmt.Sprintf("%s->%s", callerFuncName, calleeFuncName))
 }

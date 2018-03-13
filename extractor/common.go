@@ -53,8 +53,14 @@ type DepMeta struct {
 // DepAtFunc is a struct for dependencies at the function level
 type DepAtFunc struct {
 	ID   string `json:"id"`
-	From string `json:"from"`
-	To   string `json:"to"`
+	From *Func  `json:"from"`
+	To   *Func  `json:"to"`
+}
+
+// Func is a struct for representing a function
+type Func struct {
+	Signature string `json:"signature"`
+	Filename  string `json:"filename"`
 }
 
 // DepType is an enum for dependency relationship type
