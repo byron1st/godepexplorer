@@ -76,7 +76,7 @@ fabric.properties
 # See https://github.com/joeblau/gitignore.io/issues/186 and https://github.com/joeblau/gitignore.io/issues/360
 
 .idea/
-
+godepexplorer.iml
 
 # End of https://www.gitignore.io/api/go,jetbrains+all
 
