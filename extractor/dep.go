@@ -33,9 +33,9 @@ func GetDeps(rootPkgPath string) ([]*Pkg, []*Dep, error) {
 		return nil, nil, err
 	}
 
-	pkgSet, depSet := inspectPackageWithCHA(program, rootPkgPath)
+	pkgSet, depSet := inspectPackageWithStatic(program, rootPkgPath)
+	// pkgSet, depSet := inspectPackageWithCHA(program, rootPkgPath)
 	// pkgSet, depSet := inspectPackageWithRTA(program, rootPkgPath)
-	// pkgSet, depSet := inspectPackageWithStatic(program, rootPkgPath)
 	// pkgSet, depSet := inspectPackageWithPointer(program, rootPkgPath)
 
 	if pkgSet == nil || depSet == nil {
