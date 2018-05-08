@@ -20,6 +20,50 @@ import (
 	"golang.org/x/tools/go/ssa/ssautil"
 )
 
+var ErrNoSuchAlgorithm = errors.New("no such algorithm")
+var ErrNoMainPackage = errors.New("there is no main package")
+
+func GetDepsWithAlgorithm(rootPkgPath string, algorithm string) ([]*Pkg, []*Dep, error) {
+	program, err := buildProgram(rootPkgPath)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var pkgSet map[string]*Pkg
+	var depSet map[string]*Dep
+
+	switch algorithm {
+	case "static":
+		pkgSet, depSet = inspectPackageWithStatic(program, rootPkgPath)
+	case "cha":
+		pkgSet, depSet = inspectPackageWithCHA(program, rootPkgPath)
+	case "rta":
+		pkgSet, depSet = inspectPackageWithRTA(program, rootPkgPath)
+	case "pointer":
+		pkgSet, depSet = inspectPackageWithPointer(program, rootPkgPath)
+	default:
+		return nil, nil, ErrNoSuchAlgorithm
+	}
+
+	if pkgSet == nil || depSet == nil {
+		return nil, nil, ErrNoMainPackage
+	}
+
+	pkgList := make([]*Pkg, 0)
+	depList := make([]*Dep, 0)
+
+	for _, pkg := range pkgSet {
+		pkgList = append(pkgList, pkg)
+	}
+
+	for _, dep := range depSet {
+		depList = append(depList, dep)
+	}
+
+	return pkgList, depList, nil
+}
+
 // GetDeps extracts a list of packages and dependency relationships from a root package.
 func GetDeps(rootPkgPath string) ([]*Pkg, []*Dep, error) {
 	// allMains := traverseSubDir(path.Join(gopath, rootPkgPath))

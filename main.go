@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/byron1st/godepexplorer/extractor"
 	"github.com/urfave/cli"
 )
 
@@ -21,7 +23,6 @@ var SupportedAlgorithms = map[string]bool{"static": true, "cha": true, "rta": tr
 
 var ErrWrongGoPackage = errors.New("wrong Go package path")
 var ErrNoPackagePath = errors.New("no such Go package in your gopath")
-var ErrParseFileFailed = errors.New("parsing output file path has been failed")
 var ErrNoSuchFileOrDir = errors.New("there is no such file or directory")
 var ErrStatFileFailed = errors.New("getting stat of the given output file has been failed")
 var ErrNoSuchAlgorithm = errors.New("no such algorithm")
@@ -89,7 +90,7 @@ func extract(c *cli.Context) error {
 	path := c.String("output")
 	outputFilePath, err := filepath.Abs(path)
 	if err != nil {
-		return ErrParseFileFailed
+		return err
 	}
 
 	if info, err := os.Stat(outputFilePath); err == nil {
@@ -104,6 +105,35 @@ func extract(c *cli.Context) error {
 	}
 
 	fmt.Printf("Package: %s\nAlgorith: %s\nOutput: %s\n", pkgPath, algorithm, outputFilePath)
+
+	nodes, edges, err := extractor.GetDepsWithAlgorithm(pkgPath, algorithm)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("nodes len: %d, edges len: %d\n", len(nodes), len(edges))
+
+	outputObj := struct {
+		Nodes []*extractor.Pkg `json:"nodes"`
+		Edges []*extractor.Dep `json:"edges"`
+	}{
+		Nodes: nodes,
+		Edges: edges,
+	}
+
+	out, err := json.Marshal(outputObj)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(outputFilePath)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	f.Write(out)
 
 	return nil
 }
