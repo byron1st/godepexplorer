@@ -87,3 +87,6 @@ output.csv
 .vscode
 debug
 godepexplorer
+
+# dep
+vendor/
