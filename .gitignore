@@ -90,3 +90,6 @@ godepexplorer
 
 # dep
 vendor/
+
+# output
+DEPENDENCY.json
