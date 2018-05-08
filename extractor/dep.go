@@ -37,9 +37,15 @@ func GetDepsWithAlgorithm(rootPkgPath string, algorithm string) ([]*Pkg, []*Dep,
 	case "cha":
 		pkgSet, depSet = inspectPackageWithCHA(program, rootPkgPath)
 	case "rta":
-		pkgSet, depSet = inspectPackageWithRTA(program, rootPkgPath)
+		pkgSet, depSet, err = inspectPackageWithRTA(program, rootPkgPath)
+		if err != nil {
+			return nil, nil, err
+		}
 	case "pointer":
-		pkgSet, depSet = inspectPackageWithPointer(program, rootPkgPath)
+		pkgSet, depSet, err = inspectPackageWithPointer(program, rootPkgPath)
+		if err != nil {
+			return nil, nil, err
+		}
 	default:
 		return nil, nil, ErrNoSuchAlgorithm
 	}
@@ -92,13 +98,26 @@ func inspectPackageWithCHA(program *ssa.Program, rootPkgPath string) (map[string
 	return traverseCallgraph(cha.CallGraph(program), rootPkgPath)
 }
 
-func inspectPackageWithRTA(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
-	fmt.Println("Analyze using the Rapid Type Analysis(RTA) algorithm")
-
-	pkgs := program.AllPackages()
+func getAllMains(program *ssa.Program) ([]*ssa.Package, error) {
+	allPkgs := program.AllPackages()
 
 	var mains []*ssa.Package
-	mains = append(mains, ssautil.MainPackages(pkgs)...)
+	mains = append(mains, ssautil.MainPackages(allPkgs)...)
+
+	if len(mains) == 0 {
+		return nil, ErrNoMainPackage
+	}
+
+	return mains, nil
+}
+
+func inspectPackageWithRTA(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep, error) {
+	fmt.Println("Analyze using the Rapid Type Analysis(RTA) algorithm")
+
+	mains, err := getAllMains(program)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	var roots []*ssa.Function
 	for _, main := range mains {
@@ -106,18 +125,16 @@ func inspectPackageWithRTA(program *ssa.Program, rootPkgPath string) (map[string
 	}
 	cg := rta.Analyze(roots, true).CallGraph
 
-	return traverseCallgraph(cg, rootPkgPath)
+	pkgs, deps := traverseCallgraph(cg, rootPkgPath)
+	return pkgs, deps, nil
 }
 
-func inspectPackageWithPointer(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
+func inspectPackageWithPointer(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep, error) {
 	fmt.Println("Analyze using the inclusion-based Points-To Analysis algorithm")
-	pkgs := program.AllPackages()
 
-	var mains []*ssa.Package
-	mains = append(mains, ssautil.MainPackages(pkgs)...)
-
-	if len(mains) == 0 {
-		return nil, nil
+	mains, err := getAllMains(program)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	config := &pointer.Config{
@@ -125,9 +142,13 @@ func inspectPackageWithPointer(program *ssa.Program, rootPkgPath string) (map[st
 		BuildCallGraph: true,
 	}
 
-	analysis, _ := pointer.Analyze(config)
+	analysis, err := pointer.Analyze(config)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return traverseCallgraph(analysis.CallGraph, rootPkgPath)
+	pkgs, deps := traverseCallgraph(analysis.CallGraph, rootPkgPath)
+	return pkgs, deps, nil
 }
 
 func traverseCallgraph(cg *callgraph.Graph, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
