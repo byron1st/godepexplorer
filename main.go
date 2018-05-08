@@ -28,9 +28,6 @@ var ErrStatFileFailed = errors.New("getting stat of the given output file has be
 var ErrNoSuchAlgorithm = errors.New("no such algorithm")
 
 func main() {
-	//s := server.MakeServer("localhost", 1111)
-	//s.StartServer()
-
 	app := cli.NewApp()
 	app.Name = "godepexplorer"
 	app.Usage = "A Go program to extract dependency relationships of a Go program"

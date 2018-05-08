@@ -5,9 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"golang.org/x/tools/go/callgraph"
@@ -64,42 +62,6 @@ func GetDepsWithAlgorithm(rootPkgPath string, algorithm string) ([]*Pkg, []*Dep,
 	return pkgList, depList, nil
 }
 
-// GetDeps extracts a list of packages and dependency relationships from a root package.
-func GetDeps(rootPkgPath string) ([]*Pkg, []*Dep, error) {
-	// allMains := traverseSubDir(path.Join(gopath, rootPkgPath))
-	// for _, main := range allMains {
-	// 	fmt.Println(main)
-	// }
-
-	program, err := buildProgram(rootPkgPath)
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pkgSet, depSet := inspectPackageWithStatic(program, rootPkgPath)
-	// pkgSet, depSet := inspectPackageWithCHA(program, rootPkgPath)
-	// pkgSet, depSet := inspectPackageWithRTA(program, rootPkgPath)
-	// pkgSet, depSet := inspectPackageWithPointer(program, rootPkgPath)
-
-	if pkgSet == nil || depSet == nil {
-		return nil, nil, errors.New("there is no main package")
-	}
-
-	pkgList := make([]*Pkg, 0)
-	depList := make([]*Dep, 0)
-
-	for _, pkg := range pkgSet {
-		pkgList = append(pkgList, pkg)
-	}
-
-	for _, dep := range depSet {
-		depList = append(depList, dep)
-	}
-
-	return pkgList, depList, nil
-}
-
 func buildProgram(rootPkgPath string) (*ssa.Program, error) {
 	pkgPaths := []string{rootPkgPath}
 	conf := loader.Config{}
@@ -120,18 +82,19 @@ func buildProgram(rootPkgPath string) (*ssa.Program, error) {
 
 func inspectPackageWithStatic(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze only static calls")
-	packageSet, depSet := traverseCallgraph(static.CallGraph(program), rootPkgPath)
 
-	return constructTree(packageSet, depSet)
+	return traverseCallgraph(static.CallGraph(program), rootPkgPath)
 }
 
 func inspectPackageWithCHA(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze using the Class Hierarchy Analysis(CHA) algorithm")
+
 	return traverseCallgraph(cha.CallGraph(program), rootPkgPath)
 }
 
 func inspectPackageWithRTA(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze using the Rapid Type Analysis(RTA) algorithm")
+
 	pkgs := program.AllPackages()
 
 	var mains []*ssa.Package
@@ -177,13 +140,13 @@ func traverseCallgraph(cg *callgraph.Graph, rootPkgPath string) (map[string]*Pkg
 		}
 
 		// Remove an edge if packages of its caller and callee are same
-		if getPkgPath(edge.Caller, rootPkgPath) == getPkgPath(edge.Callee, rootPkgPath) {
+		if getPkgPath(edge.Caller) == getPkgPath(edge.Callee) {
 			return nil
 		}
 
 		addPkg(pkgSet, edge.Caller, rootPkgPath)
 		addPkg(pkgSet, edge.Callee, rootPkgPath)
-		addDep(depSet, edge, rootPkgPath, pkgSet)
+		addDep(depSet, edge, pkgSet)
 
 		return nil
 	})
@@ -191,26 +154,8 @@ func traverseCallgraph(cg *callgraph.Graph, rootPkgPath string) (map[string]*Pkg
 	return pkgSet, depSet
 }
 
-func constructTree(packageSet map[string]*Pkg, depSet map[string]*Dep) (map[string]*Pkg, map[string]*Dep) {
-	for pkgID, pkg := range packageSet {
-		pkgStringTokens := strings.Split(pkg.ID, "/")
-		if len(pkgStringTokens) != 1 {
-			parentPkgID := strings.Join(pkgStringTokens[:len(pkgStringTokens)-1], "/")
-			if packageSet[parentPkgID] != nil {
-				packageSet[parentPkgID].Meta.Children[pkgID] = true
-				pkg.Meta.Parent = parentPkgID
-
-				compDep := getCompDep(parentPkgID, pkgID)
-				depSet[compDep.ID] = compDep
-			}
-		}
-	}
-
-	return packageSet, depSet
-}
-
 func addPkg(pkgSet map[string]*Pkg, node *callgraph.Node, rootPkgPath string) {
-	pkgPath := getPkgPath(node, rootPkgPath)
+	pkgPath := getPkgPath(node)
 	if pkgObj := pkgSet[getPkgIDFromPath(pkgPath)]; pkgObj == nil {
 		newPkg := &Pkg{
 			ID:    getPkgIDFromPath(pkgPath),
@@ -231,15 +176,15 @@ func addPkg(pkgSet map[string]*Pkg, node *callgraph.Node, rootPkgPath string) {
 	}
 }
 
-func addDep(depSet map[string]*Dep, edge *callgraph.Edge, rootPkgPath string, pkgSet map[string]*Pkg) {
-	depID := getDepID(edge, rootPkgPath)
-	depAtFunc := getDepAtFunc(edge, rootPkgPath)
+func addDep(depSet map[string]*Dep, edge *callgraph.Edge, pkgSet map[string]*Pkg) {
+	depID := getDepID(edge)
+	depAtFunc := getDepAtFunc(edge)
 
 	if depObj := depSet[depID]; depObj == nil {
 		newDep := &Dep{
 			ID:   depID,
-			From: getPkgIDFromPath(getPkgPath(edge.Caller, rootPkgPath)),
-			To:   getPkgIDFromPath(getPkgPath(edge.Callee, rootPkgPath)),
+			From: getPkgIDFromPath(getPkgPath(edge.Caller)),
+			To:   getPkgIDFromPath(getPkgPath(edge.Callee)),
 			Meta: &DepMeta{
 				DepAtFuncSet: map[string]*DepAtFunc{depAtFunc.ID: depAtFunc},
 				Type:         REL,
@@ -251,16 +196,16 @@ func addDep(depSet map[string]*Dep, edge *callgraph.Edge, rootPkgPath string, pk
 		depObj.Meta.DepAtFuncSet[depAtFunc.ID] = depAtFunc
 	}
 
-	if callerPkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Caller, rootPkgPath))]; callerPkg != nil {
+	if callerPkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Caller))]; callerPkg != nil {
 		callerPkg.Meta.SourceEdgeIDSet[depID] = true
 	}
 
-	if calleePkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Callee, rootPkgPath))]; calleePkg != nil {
+	if calleePkg := pkgSet[getPkgIDFromPath(getPkgPath(edge.Callee))]; calleePkg != nil {
 		calleePkg.Meta.SinkEdgeIDSet[depID] = true
 	}
 }
 
-func getDepAtFunc(edge *callgraph.Edge, rootPkgPath string) *DepAtFunc {
+func getDepAtFunc(edge *callgraph.Edge) *DepAtFunc {
 	return &DepAtFunc{
 		ID:   getDepAtFuncID(edge),
 		From: getFunc(edge.Caller),
@@ -288,7 +233,7 @@ func getPkgName(node *callgraph.Node) string {
 	return node.Func.Pkg.Pkg.Name()
 }
 
-func getPkgPath(node *callgraph.Node, rootPkgPath string) string {
+func getPkgPath(node *callgraph.Node) string {
 	return node.Func.Pkg.Pkg.Path()
 }
 
@@ -327,9 +272,9 @@ func getPkgIDFromPath(pkgPath string) string {
 	return hashByMD5(pkgPath)
 }
 
-func getDepID(edge *callgraph.Edge, rootPkgPath string) string {
-	callerPkgID := getPkgIDFromPath(getPkgPath(edge.Caller, rootPkgPath))
-	calleePkgID := getPkgIDFromPath(getPkgPath(edge.Callee, rootPkgPath))
+func getDepID(edge *callgraph.Edge) string {
+	callerPkgID := getPkgIDFromPath(getPkgPath(edge.Caller))
+	calleePkgID := getPkgIDFromPath(getPkgPath(edge.Callee))
 
 	return hashByMD5(fmt.Sprintf("%s->%s", callerPkgID, calleePkgID))
 }
@@ -358,60 +303,4 @@ func isExt(pkgPath string, rootPkgPath string) bool {
 func isStd(pkgPath string) bool {
 	firstPath := strings.Split(pkgPath, "/")[0]
 	return stdlib[firstPath]
-}
-
-func traverseSubDir(rootDir string) []string {
-	max := 0
-	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			if !strings.Contains(path, ".git") && !strings.Contains(path, "/vendor/") && !strings.Contains(path, "/Godeps/_workspace/") {
-				max++
-			}
-		}
-		return nil
-	})
-
-	count := 0
-	allMains := make([]string, 0)
-	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			if !strings.Contains(path, ".git") && !strings.Contains(path, "/vendor") && !strings.Contains(path, "/Godeps/_workspace") {
-				// _, file := filepath.Split(path)
-				pkgName := strings.Join(strings.Split(path, "/")[6:], "/")
-				// fmt.Printf("%s, %s\n", pkgName, file)
-
-				program, error := buildProgram(pkgName)
-				if error != nil {
-					return nil
-				}
-				count++
-				fmt.Printf("(%d/%d) %s done.\n", count, max, pkgName)
-
-				for _, main := range getAllMains(program) {
-					allMains = append(allMains, main)
-				}
-			}
-		}
-		return nil
-	})
-
-	return allMains
-}
-
-func getAllMains(program *ssa.Program) []string {
-	pkgs := program.AllPackages()
-
-	var mains []*ssa.Package
-	mains = append(mains, ssautil.MainPackages(pkgs)...)
-
-	if len(mains) == 0 {
-		return nil
-	}
-
-	var mainPaths []string
-	for _, main := range mains {
-		mainPaths = append(mainPaths, main.Pkg.Path())
-	}
-
-	return mainPaths
 }
