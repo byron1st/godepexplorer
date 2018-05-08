@@ -89,26 +89,13 @@ func buildProgram(rootPkgPath string) (*ssa.Program, error) {
 func inspectPackageWithStatic(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze only static calls")
 
-	return traverseCallgraph(static.CallGraph(program), rootPkgPath)
+	return constructTree(traverseCallgraph(static.CallGraph(program), rootPkgPath))
 }
 
 func inspectPackageWithCHA(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
 	fmt.Println("Analyze using the Class Hierarchy Analysis(CHA) algorithm")
 
-	return traverseCallgraph(cha.CallGraph(program), rootPkgPath)
-}
-
-func getAllMains(program *ssa.Program) ([]*ssa.Package, error) {
-	allPkgs := program.AllPackages()
-
-	var mains []*ssa.Package
-	mains = append(mains, ssautil.MainPackages(allPkgs)...)
-
-	if len(mains) == 0 {
-		return nil, ErrNoMainPackage
-	}
-
-	return mains, nil
+	return constructTree(traverseCallgraph(cha.CallGraph(program), rootPkgPath))
 }
 
 func inspectPackageWithRTA(program *ssa.Program, rootPkgPath string) (map[string]*Pkg, map[string]*Dep, error) {
@@ -125,7 +112,7 @@ func inspectPackageWithRTA(program *ssa.Program, rootPkgPath string) (map[string
 	}
 	cg := rta.Analyze(roots, true).CallGraph
 
-	pkgs, deps := traverseCallgraph(cg, rootPkgPath)
+	pkgs, deps := constructTree(traverseCallgraph(cg, rootPkgPath))
 	return pkgs, deps, nil
 }
 
@@ -147,8 +134,21 @@ func inspectPackageWithPointer(program *ssa.Program, rootPkgPath string) (map[st
 		return nil, nil, err
 	}
 
-	pkgs, deps := traverseCallgraph(analysis.CallGraph, rootPkgPath)
+	pkgs, deps := constructTree(traverseCallgraph(analysis.CallGraph, rootPkgPath))
 	return pkgs, deps, nil
+}
+
+func getAllMains(program *ssa.Program) ([]*ssa.Package, error) {
+	allPkgs := program.AllPackages()
+
+	var mains []*ssa.Package
+	mains = append(mains, ssautil.MainPackages(allPkgs)...)
+
+	if len(mains) == 0 {
+		return nil, ErrNoMainPackage
+	}
+
+	return mains, nil
 }
 
 func traverseCallgraph(cg *callgraph.Graph, rootPkgPath string) (map[string]*Pkg, map[string]*Dep) {
@@ -173,6 +173,24 @@ func traverseCallgraph(cg *callgraph.Graph, rootPkgPath string) (map[string]*Pkg
 	})
 
 	return pkgSet, depSet
+}
+
+func constructTree(packageSet map[string]*Pkg, depSet map[string]*Dep) (map[string]*Pkg, map[string]*Dep) {
+	for pkgID, pkg := range packageSet {
+		pkgStringTokens := strings.Split(pkg.ID, "/")
+		if len(pkgStringTokens) != 1 {
+			parentPkgID := strings.Join(pkgStringTokens[:len(pkgStringTokens)-1], "/")
+			if packageSet[parentPkgID] != nil {
+				packageSet[parentPkgID].Meta.Children[pkgID] = true
+				pkg.Meta.Parent = parentPkgID
+
+				compDep := getCompDep(parentPkgID, pkgID)
+				depSet[compDep.ID] = compDep
+			}
+		}
+	}
+
+	return packageSet, depSet
 }
 
 func addPkg(pkgSet map[string]*Pkg, node *callgraph.Node, rootPkgPath string) {
