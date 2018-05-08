@@ -175,6 +175,7 @@ func traverseCallgraph(cg *callgraph.Graph, rootPkgPath string) (map[string]*Pkg
 	return pkgSet, depSet
 }
 
+// TODO: should be fixed.
 func constructTree(packageSet map[string]*Pkg, depSet map[string]*Dep) (map[string]*Pkg, map[string]*Dep) {
 	for pkgID, pkg := range packageSet {
 		pkgStringTokens := strings.Split(pkg.ID, "/")
