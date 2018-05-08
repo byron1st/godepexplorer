@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -10,12 +11,20 @@ import (
 )
 
 /**
-COMMANDS: extract
+COMMANDS: extract [package-name]
 FLAGS:
---package, -p	package path
 --algorithm, -a	extraction algorithm (static(default), cha, rta, pointer)
 --output, -o	output filepath
 */
+
+var SupportedAlgorithms = map[string]bool{"static": true, "cha": true, "rta": true, "pointer": true}
+
+var ErrWrongGoPackage = errors.New("wrong Go package path")
+var ErrNoPackagePath = errors.New("no such Go package in your gopath")
+var ErrParseFileFailed = errors.New("parsing output file path has been failed")
+var ErrNoSuchFileOrDir = errors.New("there is no such file or directory")
+var ErrStatFileFailed = errors.New("getting stat of the given output file has been failed")
+var ErrNoSuchAlgorithm = errors.New("no such algorithm")
 
 func main() {
 	//s := server.MakeServer("localhost", 1111)
@@ -41,10 +50,6 @@ func buildExtractCmd() cli.Command {
 		Usage: "Extract all dependency relationships of a Go package",
 		Flags: []cli.Flag{
 			cli.StringFlag{
-				Name:  "package, p",
-				Usage: "A Go package \"`PKG`\", of which dependency relationships are extracted",
-			},
-			cli.StringFlag{
 				Name:  "algorithm, a",
 				Usage: "An extraction algorithm \"`ALG`\" (one of static(default), cha, rta, and pointer)",
 				Value: "static",
@@ -60,23 +65,45 @@ func buildExtractCmd() cli.Command {
 }
 
 func extract(c *cli.Context) error {
-	// If there are some command line arguments
+	var pkgPath string
+	var algorithm string
+	var outputFilePath string
+
 	if c.NArg() > 0 {
-		fmt.Println(c.Args()[0])
-	}
+		pkgPath = c.Args()[0]
 
-	if pkgPath := c.String("package"); pkgPath != "" {
-		fmt.Println(pkgPath)
+		info, err := os.Stat(filepath.Join(os.Getenv("GOPATH"), "src", pkgPath))
+
+		if err != nil || !info.IsDir() {
+			return ErrWrongGoPackage
+		}
 	} else {
-		fmt.Println("there is no package")
+		return ErrNoPackagePath
 	}
 
-	algorithm := c.String("algorithm")
-	fmt.Println(algorithm)
+	algorithm = c.String("algorithm")
+	if !SupportedAlgorithms[algorithm] {
+		return ErrNoSuchAlgorithm
+	}
 
 	path := c.String("output")
-	abspath, _ := filepath.Abs(path)
-	fmt.Println(abspath)
+	outputFilePath, err := filepath.Abs(path)
+	if err != nil {
+		return ErrParseFileFailed
+	}
+
+	if info, err := os.Stat(outputFilePath); err == nil {
+		if info.IsDir() {
+			outputFilePath += "/DEPENDENCY.json"
+		}
+	} else {
+		if os.IsNotExist(err) {
+			return ErrNoSuchFileOrDir
+		}
+		return ErrStatFileFailed
+	}
+
+	fmt.Printf("Package: %s\nAlgorith: %s\nOutput: %s\n", pkgPath, algorithm, outputFilePath)
 
 	return nil
 }
