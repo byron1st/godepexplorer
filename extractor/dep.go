@@ -330,9 +330,9 @@ func getDepAtFuncID(edge *callgraph.Edge) string {
 }
 
 func hashByMD5(text string) string {
-	hasher := md5.New()
-	hasher.Write([]byte(text))
-	return hex.EncodeToString(hasher.Sum(nil))
+	hash := md5.New()
+	hash.Write([]byte(text))
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 func isExt(pkgPath string, rootPkgPath string) bool {
