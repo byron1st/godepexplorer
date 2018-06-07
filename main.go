@@ -101,7 +101,7 @@ func extract(c *cli.Context) error {
 		return ErrStatFileFailed
 	}
 
-	fmt.Printf("Package: %s\nAlgorith: %s\nOutput: %s\n", pkgPath, algorithm, outputFilePath)
+	fmt.Printf("Package: %s\nAlgorithm: %s\nOutput: %s\n", pkgPath, algorithm, outputFilePath)
 
 	nodes, edges, err := extractor.GetDepsWithAlgorithm(pkgPath, algorithm)
 	if err != nil {
