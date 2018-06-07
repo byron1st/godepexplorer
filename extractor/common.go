@@ -9,6 +9,7 @@ import (
 type Pkg struct {
 	ID    string   `json:"id"`
 	Label string   `json:"label"`
+	Type  PkgType  `json:"type"`
 	Meta  *PkgMeta `json:"meta"`
 }
 
