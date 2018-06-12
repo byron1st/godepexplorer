@@ -199,7 +199,7 @@ func addPkg(pkgSet map[string]*Pkg, node *callgraph.Node, rootPkgPath string) {
 	if pkgObj := pkgSet[getPkgIDFromPath(pkgPath)]; pkgObj == nil {
 		newPkg := &Pkg{
 			ID:    getPkgIDFromPath(pkgPath),
-			Label: getPkgName(node),
+			Label: pkgPath,
 			Type:  getPkgTypeFromPath(pkgPath, rootPkgPath),
 			Meta: &PkgMeta{
 				PkgPath:         pkgPath,
